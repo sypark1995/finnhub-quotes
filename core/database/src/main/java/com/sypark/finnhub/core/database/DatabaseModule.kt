@@ -19,4 +19,14 @@ object DatabaseModule {
     @Singleton
     fun provideAppDatabase(@ApplicationContext context: Context): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, DATABASE_NAME).build()
+
+    @Provides
+    @Singleton
+    fun provideWatchlistDao(database: AppDatabase): com.sypark.finnhub.core.database.dao.WatchlistDao =
+        database.watchlistDao()
+
+    @Provides
+    @Singleton
+    fun provideQuoteCacheDao(database: AppDatabase): com.sypark.finnhub.core.database.dao.QuoteCacheDao =
+        database.quoteCacheDao()
 }
