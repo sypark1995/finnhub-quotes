@@ -50,4 +50,19 @@ class FinnhubApiServiceTest {
         assertEquals(1720000000L, dto.t)
         assertEquals("/quote?symbol=AAPL", server.takeRequest().path)
     }
+
+    @Test
+    fun `search parses Finnhub's result-array JSON`() = runTest {
+        server.enqueue(
+            MockResponse().setBody(
+                """{"count":1,"result":[{"description":"APPLE INC","displaySymbol":"AAPL","symbol":"AAPL","type":"Common Stock"}]}""",
+            ),
+        )
+
+        val response = service.search(query = "AAPL")
+
+        assertEquals(1, response.count)
+        assertEquals("AAPL", response.result.single().symbol)
+        assertEquals("/search?q=AAPL", server.takeRequest().path)
+    }
 }
