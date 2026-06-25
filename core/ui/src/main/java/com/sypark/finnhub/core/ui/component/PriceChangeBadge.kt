@@ -12,7 +12,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.sypark.finnhub.core.ui.theme.AppTheme
 import com.sypark.finnhub.core.ui.theme.FinnhubQuotesTheme
-import com.sypark.finnhub.core.ui.theme.ShapeExtraSmall
+import com.sypark.finnhub.core.ui.theme.ShapePill
 import com.sypark.finnhub.core.ui.theme.Spacing
 import com.sypark.finnhub.core.ui.util.formatPercent
 
@@ -33,8 +33,8 @@ fun PriceChangeBadge(
         style = MaterialTheme.typography.labelLarge,
         textAlign = TextAlign.Center,
         modifier = modifier
-            .background(color = containerColor, shape = ShapeExtraSmall)
-            .padding(horizontal = Spacing.space2, vertical = 4.dp),
+            .background(color = containerColor, shape = ShapePill)
+            .padding(horizontal = Spacing.space3, vertical = 4.dp),
     )
 }
 
