@@ -42,10 +42,10 @@ private data class SubscriptionMessage(val type: String, val symbol: String)
 
 @Singleton
 class FinnhubWebSocketManagerImpl @Inject constructor(
-    private val okHttpClient: OkHttpClient,
+    @WebSocketOkHttpClient private val okHttpClient: OkHttpClient,
     private val json: Json,
     private val appCoroutineScope: AppCoroutineScope,
-    private val webSocketUrl: String = "wss://ws.finnhub.io?token=${BuildConfig.FINNHUB_API_KEY}",
+    private val webSocketUrl: String,
 ) : FinnhubWebSocketManager {
 
     private val _connectionState = MutableStateFlow(ConnectionState.Disconnected)

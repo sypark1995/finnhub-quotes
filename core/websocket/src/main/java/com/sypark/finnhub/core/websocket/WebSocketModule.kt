@@ -5,10 +5,14 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
+import javax.inject.Qualifier
 import javax.inject.Singleton
+
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class WebSocketOkHttpClient
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -21,10 +25,11 @@ abstract class WebSocketModule {
     companion object {
         @Provides
         @Singleton
-        fun provideWebSocketJson(): Json = Json { ignoreUnknownKeys = true }
+        fun provideWebSocketUrl(): String = "wss://ws.finnhub.io?token=${BuildConfig.FINNHUB_API_KEY}"
 
         @Provides
         @Singleton
+        @WebSocketOkHttpClient
         fun provideWebSocketOkHttpClient(): OkHttpClient = OkHttpClient.Builder()
             .pingInterval(20, TimeUnit.SECONDS)
             .build()

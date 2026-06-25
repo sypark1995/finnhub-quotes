@@ -22,8 +22,12 @@ fun AppNavHost(navController: NavHostController) {
 
     NavHost(navController = navController, startDestination = Route.Watchlist) {
         composable<Route.Watchlist> {
-            AppScaffold(navController = navController, currentRoute = Route.Watchlist) {
-                PlaceholderScreen(title = "관심종목", modifier = Modifier.padding(it))
+            AppScaffold(navController = navController, currentRoute = Route.Watchlist) { padding ->
+                com.sypark.finnhub.feature.watchlist.WatchlistRoute(
+                    onNavigateToDetail = { symbol -> navController.navigate(Route.Detail(symbol)) },
+                    onNavigateToSearch = { navController.navigate(Route.Search) },
+                    modifier = androidx.compose.ui.Modifier.padding(padding),
+                )
             }
         }
         composable<Route.Search> {
