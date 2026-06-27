@@ -4,7 +4,6 @@ package com.sypark.finnhub.core.ui.component
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -49,7 +48,12 @@ fun EmptyState(
             modifier = Modifier.padding(top = Spacing.space2, bottom = Spacing.space5),
         )
         if (ctaLabel != null && onCtaClick != null) {
-            FilledTonalButton(onClick = onCtaClick) { Text(ctaLabel) }
+            CapsuleButton(
+                text = ctaLabel,
+                onClick = onCtaClick,
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            )
         }
     }
 }
