@@ -8,8 +8,10 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -46,6 +48,7 @@ import com.sypark.finnhub.core.ui.component.QuoteRow
 import com.sypark.finnhub.core.ui.component.QuoteRowSkeleton
 import com.sypark.finnhub.core.ui.model.ConnectionBannerState
 import com.sypark.finnhub.core.ui.theme.AppTheme
+import com.sypark.finnhub.core.ui.theme.Spacing
 import kotlinx.coroutines.flow.collectLatest
 
 private fun ConnectionStatus.toBannerState(): ConnectionBannerState = when (this) {
@@ -125,7 +128,10 @@ fun WatchlistScreen(
             ConnectionBanner(state = state.connectionStatus.toBannerState())
 
             when {
-                state.isLoading -> LazyColumn { items(5) { QuoteRowSkeleton() } }
+                state.isLoading -> LazyColumn(
+                    contentPadding = PaddingValues(horizontal = Spacing.space4, vertical = Spacing.space2),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.space2),
+                ) { items(5) { QuoteRowSkeleton() } }
                 state.error != null && state.items.isEmpty() -> ErrorBanner(
                     message = "네트워크 연결을 확인해 주세요",
                     onRetry = { onIntent(WatchlistIntent.Load) },
@@ -156,7 +162,11 @@ fun WatchlistScreen(
                             )
                         },
                     ) {
-                        LazyColumn(state = listState) {
+                        LazyColumn(
+                            state = listState,
+                            contentPadding = PaddingValues(horizontal = Spacing.space4, vertical = Spacing.space2),
+                            verticalArrangement = Arrangement.spacedBy(Spacing.space2),
+                        ) {
                             items(items = state.items, key = { it.symbol }) { item ->
                                 val dismissState = androidx.compose.material3.rememberSwipeToDismissBoxState(
                                     confirmValueChange = { value ->
