@@ -1,16 +1,31 @@
 // feature/watchlist/src/main/java/com/sypark/finnhub/feature/watchlist/WatchlistScreen.kt
 package com.sypark.finnhub.feature.watchlist
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DragHandle
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.pulltorefresh.PullToRefreshState
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -18,22 +33,62 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sypark.finnhub.core.domain.model.ConnectionStatus
+import com.sypark.finnhub.core.ui.component.AppSnackbarHost
+import com.sypark.finnhub.core.ui.component.CapsuleButton
 import com.sypark.finnhub.core.ui.component.ConnectionBanner
 import com.sypark.finnhub.core.ui.component.EmptyState
 import com.sypark.finnhub.core.ui.component.ErrorBanner
 import com.sypark.finnhub.core.ui.component.QuoteRow
 import com.sypark.finnhub.core.ui.component.QuoteRowSkeleton
 import com.sypark.finnhub.core.ui.model.ConnectionBannerState
+import com.sypark.finnhub.core.ui.theme.AppTheme
+import com.sypark.finnhub.core.ui.theme.Spacing
 import kotlinx.coroutines.flow.collectLatest
 
 private fun ConnectionStatus.toBannerState(): ConnectionBannerState = when (this) {
     ConnectionStatus.Connected -> ConnectionBannerState.LIVE
     ConnectionStatus.Connecting, ConnectionStatus.Reconnecting -> ConnectionBannerState.RECONNECTING
     ConnectionStatus.Disconnected -> ConnectionBannerState.DELAYED
+}
+
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun CustomPullRefreshIndicator(
+    state: PullToRefreshState,
+    isRefreshing: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val rotation = if (isRefreshing) {
+        val transition = rememberInfiniteTransition(label = "pullRefreshSpin")
+        val angle by transition.animateFloat(
+            initialValue = 0f,
+            targetValue = 360f,
+            animationSpec = infiniteRepeatable(animation = tween(durationMillis = 800, easing = LinearEasing)),
+            label = "pullRefreshAngle",
+        )
+        angle
+    } else {
+        (state.distanceFraction * 360f).coerceIn(0f, 360f)
+    }
+    Box(
+        modifier = modifier
+            .size(32.dp)
+            .background(color = MaterialTheme.colorScheme.surfaceVariant, shape = CircleShape),
+        contentAlignment = androidx.compose.ui.Alignment.Center,
+    ) {
+        Icon(
+            imageVector = androidx.compose.material.icons.Icons.Filled.Refresh,
+            contentDescription = null,
+            tint = AppTheme.extended.live,
+            modifier = Modifier.size(18.dp).rotate(rotation),
+        )
+    }
 }
 
 @Composable
@@ -73,7 +128,10 @@ fun WatchlistScreen(
             ConnectionBanner(state = state.connectionStatus.toBannerState())
 
             when {
-                state.isLoading -> LazyColumn { items(5) { QuoteRowSkeleton() } }
+                state.isLoading -> LazyColumn(
+                    contentPadding = PaddingValues(horizontal = Spacing.space4, vertical = Spacing.space2),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.space2),
+                ) { items(5) { QuoteRowSkeleton() } }
                 state.error != null && state.items.isEmpty() -> ErrorBanner(
                     message = "네트워크 연결을 확인해 주세요",
                     onRetry = { onIntent(WatchlistIntent.Load) },
@@ -91,11 +149,24 @@ fun WatchlistScreen(
                     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
                     var draggingIndex by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<Int?>(null) }
                     var dragOffsetY by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(0f) }
+                    val pullToRefreshState = rememberPullToRefreshState()
                     androidx.compose.material3.pulltorefresh.PullToRefreshBox(
                         isRefreshing = state.isRefreshing,
                         onRefresh = { onIntent(WatchlistIntent.Refresh) },
+                        state = pullToRefreshState,
+                        indicator = {
+                            CustomPullRefreshIndicator(
+                                state = pullToRefreshState,
+                                isRefreshing = state.isRefreshing,
+                                modifier = Modifier.align(androidx.compose.ui.Alignment.TopCenter),
+                            )
+                        },
                     ) {
-                        LazyColumn(state = listState) {
+                        LazyColumn(
+                            state = listState,
+                            contentPadding = PaddingValues(horizontal = Spacing.space4, vertical = Spacing.space2),
+                            verticalArrangement = Arrangement.spacedBy(Spacing.space2),
+                        ) {
                             items(items = state.items, key = { it.symbol }) { item ->
                                 val dismissState = androidx.compose.material3.rememberSwipeToDismissBoxState(
                                     confirmValueChange = { value ->
@@ -170,15 +241,21 @@ fun WatchlistScreen(
                 }
             }
         }
-        androidx.compose.material3.ExtendedFloatingActionButton(
+        CapsuleButton(
+            text = "종목 검색",
             onClick = { onIntent(WatchlistIntent.OpenSearch) },
-            icon = { androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Add, contentDescription = null) },
-            text = { androidx.compose.material3.Text("종목 검색") },
+            icon = {
+                androidx.compose.material3.Icon(
+                    androidx.compose.material.icons.Icons.Filled.Add,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                )
+            },
             modifier = Modifier
                 .align(androidx.compose.ui.Alignment.BottomEnd)
                 .padding(com.sypark.finnhub.core.ui.theme.Spacing.space4),
         )
-        androidx.compose.material3.SnackbarHost(
+        AppSnackbarHost(
             hostState = snackbarHostState,
             modifier = Modifier.align(androidx.compose.ui.Alignment.BottomCenter),
         )

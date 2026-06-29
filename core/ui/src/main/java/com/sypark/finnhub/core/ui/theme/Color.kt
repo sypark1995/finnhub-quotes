@@ -5,9 +5,10 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.graphics.Color
 
 // Dark theme (default — ui-design.md §2.1 "다크 모드 기본")
-val DarkPrimary = Color(0xFF4F8CFF)
-val DarkOnPrimary = Color(0xFFFFFFFF)
-val DarkPrimaryContainer = Color(0xFF1A3A6B)
+// Primary accent modeled after Binance's signature gold/amber brand color.
+val DarkPrimary = Color(0xFFF0B90B)
+val DarkOnPrimary = Color(0xFF1E1E1E)
+val DarkPrimaryContainer = Color(0xFF4A3B0A)
 val DarkSecondary = Color(0xFF6BDCAB)
 val DarkBackground = Color(0xFF0D1117)
 val DarkSurface = Color(0xFF161B22)

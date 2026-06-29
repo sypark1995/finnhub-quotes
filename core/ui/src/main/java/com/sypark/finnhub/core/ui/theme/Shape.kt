@@ -10,6 +10,11 @@ val ShapeMedium = RoundedCornerShape(12.dp)
 val ShapeLarge = RoundedCornerShape(16.dp)
 val ShapeExtraLarge = RoundedCornerShape(28.dp)
 
+// Custom UI redesign (2026-07-06) — soft rounded cards + capsule pills,
+// replacing Material3's default component shapes.
+val ShapeCard = RoundedCornerShape(20.dp)
+val ShapePill = RoundedCornerShape(percent = 50)
+
 val AppShapes = Shapes(
     extraSmall = ShapeExtraSmall,
     small = ShapeSmall,
