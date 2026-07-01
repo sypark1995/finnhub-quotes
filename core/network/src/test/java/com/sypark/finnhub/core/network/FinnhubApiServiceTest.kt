@@ -85,4 +85,16 @@ class FinnhubApiServiceTest {
         service.getForexCandles(symbol = "OANDA:EUR_USD", resolution = "D", from = 1, to = 2)
         assertEquals("/forex/candle?symbol=OANDA:EUR_USD&resolution=D&from=1&to=2", URLDecoder.decode(server.takeRequest().path, "UTF-8"))
     }
+
+    @Test
+    fun `getStockProfile parses Finnhub's profile2 JSON`() = runTest {
+        server.enqueue(
+            MockResponse().setBody(
+                """{"name":"Apple Inc","exchange":"NASDAQ","finnhubIndustry":"Technology","logo":"https://x/logo.png","marketCapitalization":3010000.0,"weburl":"https://apple.com","currency":"USD"}""",
+            ),
+        )
+        val dto = service.getStockProfile(symbol = "AAPL")
+        assertEquals("Apple Inc", dto.name)
+        assertEquals(3010000.0, dto.marketCapitalization)
+    }
 }
