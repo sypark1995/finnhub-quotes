@@ -97,4 +97,16 @@ class FinnhubApiServiceTest {
         assertEquals("Apple Inc", dto.name)
         assertEquals(3010000.0, dto.marketCapitalization)
     }
+
+    @Test
+    fun `getStockMetrics parses the nested metric object and digit-leading keys`() = runTest {
+        server.enqueue(
+            MockResponse().setBody(
+                """{"metric":{"peBasicExclExtraTTM":32.5,"52WeekHigh":199.62,"52WeekLow":164.08,"epsBasicExclExtraItemsTTM":6.1,"beta":1.2},"metricType":"all"}""",
+            ),
+        )
+        val dto = service.getStockMetrics(symbol = "AAPL", metric = "all")
+        assertEquals(32.5, dto.metric.peRatio)
+        assertEquals(199.62, dto.metric.week52High)
+    }
 }
