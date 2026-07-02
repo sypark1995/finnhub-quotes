@@ -1,6 +1,7 @@
 package com.sypark.finnhub.core.network
 
 import com.sypark.finnhub.core.network.dto.CandleResponseDto
+import com.sypark.finnhub.core.network.dto.CompanyNewsDto
 import com.sypark.finnhub.core.network.dto.QuoteDto
 import com.sypark.finnhub.core.network.dto.SearchResponseDto
 import com.sypark.finnhub.core.network.dto.StockMetricResponseDto
@@ -36,4 +37,14 @@ interface FinnhubApiService {
 
     @GET("stock/metric")
     suspend fun getStockMetrics(@Query("symbol") symbol: String, @Query("metric") metric: String = "all"): StockMetricResponseDto
+
+    @GET("stock/peers")
+    suspend fun getPeers(@Query("symbol") symbol: String): List<String>
+
+    @GET("company-news")
+    suspend fun getCompanyNews(
+        @Query("symbol") symbol: String,
+        @Query("from") from: String,
+        @Query("to") to: String,
+    ): List<CompanyNewsDto>
 }

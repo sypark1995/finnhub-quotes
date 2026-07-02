@@ -109,4 +109,22 @@ class FinnhubApiServiceTest {
         assertEquals(32.5, dto.metric.peRatio)
         assertEquals(199.62, dto.metric.week52High)
     }
+
+    @Test
+    fun `getPeers parses a bare JSON string array`() = runTest {
+        server.enqueue(MockResponse().setBody("""["MSFT","GOOGL"]"""))
+        val peers = service.getPeers(symbol = "AAPL")
+        assertEquals(listOf("MSFT", "GOOGL"), peers)
+    }
+
+    @Test
+    fun `getCompanyNews parses a JSON array of news items`() = runTest {
+        server.enqueue(
+            MockResponse().setBody(
+                """[{"id":1,"headline":"Apple announces...","source":"Reuters","url":"https://x","datetime":1720000000,"summary":"...","image":"https://x/i.png"}]""",
+            ),
+        )
+        val news = service.getCompanyNews(symbol = "AAPL", from = "2026-06-01", to = "2026-07-01")
+        assertEquals("Apple announces...", news.single().headline)
+    }
 }
