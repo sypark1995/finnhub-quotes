@@ -29,4 +29,9 @@ object DatabaseModule {
     @Singleton
     fun provideQuoteCacheDao(database: AppDatabase): com.sypark.finnhub.core.database.dao.QuoteCacheDao =
         database.quoteCacheDao()
+
+    @Provides
+    @Singleton
+    fun provideCandleCacheDao(database: AppDatabase): com.sypark.finnhub.core.database.dao.CandleCacheDao =
+        database.candleCacheDao()
 }

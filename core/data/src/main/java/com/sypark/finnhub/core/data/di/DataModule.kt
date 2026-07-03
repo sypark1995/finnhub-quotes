@@ -6,6 +6,7 @@ import com.sypark.finnhub.core.domain.repository.MarketRepository
 import com.sypark.finnhub.core.domain.repository.WatchlistRepository
 import dagger.Binds
 import dagger.Module
+import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
@@ -21,4 +22,11 @@ abstract class DataModule {
     @Binds
     @Singleton
     abstract fun bindMarketRepository(impl: MarketRepositoryImpl): MarketRepository
+
+    companion object {
+        // Dagger doesn't honor Kotlin default parameter values on @Inject constructors,
+        // so MarketRepositoryImpl's `nowProvider` seam needs its own binding for production use.
+        @Provides
+        fun provideNowProvider(): () -> Long = { System.currentTimeMillis() }
+    }
 }
