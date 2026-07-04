@@ -1,0 +1,117 @@
+package com.sypark.finnhub.feature.watchlist
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.sypark.finnhub.core.common.AppResult
+import com.sypark.finnhub.core.domain.model.WatchlistItem
+import com.sypark.finnhub.core.domain.usecase.watchlist.ObserveConnectionStatusUseCase
+import com.sypark.finnhub.core.domain.usecase.watchlist.ObserveQuotesUseCase
+import com.sypark.finnhub.core.domain.usecase.watchlist.ObserveWatchlistUseCase
+import com.sypark.finnhub.core.domain.usecase.watchlist.RefreshQuotesUseCase
+import com.sypark.finnhub.core.domain.usecase.watchlist.RemoveFromWatchlistUseCase
+import com.sypark.finnhub.core.domain.usecase.watchlist.ReorderWatchlistUseCase
+import com.sypark.finnhub.core.ui.model.UiQuoteSource
+import com.sypark.finnhub.core.ui.util.changeDirectionOf
+import com.sypark.finnhub.core.ui.util.formatPercent
+import com.sypark.finnhub.core.ui.util.formatPrice
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+@HiltViewModel
+class WatchlistViewModel @Inject constructor(
+    private val observeWatchlistUseCase: ObserveWatchlistUseCase,
+    private val observeQuotesUseCase: ObserveQuotesUseCase,
+    private val observeConnectionStatusUseCase: ObserveConnectionStatusUseCase,
+    private val removeFromWatchlistUseCase: RemoveFromWatchlistUseCase,
+    private val reorderWatchlistUseCase: ReorderWatchlistUseCase,
+    private val refreshQuotesUseCase: RefreshQuotesUseCase,
+) : ViewModel() {
+
+    private val _state = MutableStateFlow(WatchlistState())
+    val state: StateFlow<WatchlistState> = _state.asStateFlow()
+
+    private val _effect = MutableSharedFlow<WatchlistEffect>(extraBufferCapacity = 8, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+    val effect: SharedFlow<WatchlistEffect> = _effect.asSharedFlow()
+
+    private var latestDomainItems: List<WatchlistItem> = emptyList()
+
+    fun onIntent(intent: WatchlistIntent) {
+        when (intent) {
+            WatchlistIntent.Load -> load()
+            WatchlistIntent.Refresh -> refresh()
+            is WatchlistIntent.Remove -> remove(intent.symbol)
+            is WatchlistIntent.Reorder -> reorder(intent.fromIndex, intent.toIndex)
+            is WatchlistIntent.OpenDetail -> _effect.tryEmit(WatchlistEffect.NavigateToDetail(intent.symbol))
+            WatchlistIntent.OpenSearch -> _effect.tryEmit(WatchlistEffect.NavigateToSearch)
+        }
+    }
+
+    private fun load() {
+        observeWatchlistUseCase()
+            .flatMapLatest { items ->
+                latestDomainItems = items
+                val symbols = items.map { it.symbol }.toSet()
+                combine(
+                    observeQuotesUseCase(symbols),
+                    observeConnectionStatusUseCase(),
+                ) { quotes, connectionStatus ->
+                    val assetTypeBySymbol = items.associate { it.symbol to it.assetType }
+                    WatchlistState(
+                        items = items.map { WatchlistItemUi(it.symbol, it.displayName, it.assetType) },
+                        quotes = quotes.mapValues { (symbol, quote) ->
+                            QuoteUi(
+                                price = formatPrice(quote.price, assetTypeBySymbol.getValue(symbol)),
+                                changePercent = formatPercent(quote.changePercent),
+                                changeDirection = changeDirectionOf(quote.changePercent),
+                                quoteSource = when (quote.source) {
+                                    com.sypark.finnhub.core.domain.model.QuoteSource.WEBSOCKET -> UiQuoteSource.WEBSOCKET
+                                    com.sypark.finnhub.core.domain.model.QuoteSource.REST -> UiQuoteSource.REST
+                                    com.sypark.finnhub.core.domain.model.QuoteSource.CACHE -> UiQuoteSource.CACHE
+                                },
+                            )
+                        },
+                        connectionStatus = connectionStatus,
+                        isLoading = false,
+                        isRefreshing = _state.value.isRefreshing,
+                    )
+                }
+            }
+            .onEach { newState -> _state.value = newState }
+            .launchIn(viewModelScope)
+    }
+
+    private fun refresh() {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(isRefreshing = true)
+            refreshQuotesUseCase(latestDomainItems.map { it.symbol }.toSet())
+            _state.value = _state.value.copy(isRefreshing = false)
+        }
+    }
+
+    private fun remove(symbol: String) {
+        viewModelScope.launch {
+            when (val result = removeFromWatchlistUseCase(symbol)) {
+                is AppResult.Error -> _effect.tryEmit(WatchlistEffect.ShowSnackbar("삭제에 실패했습니다"))
+                is AppResult.Success -> Unit
+            }
+        }
+    }
+
+    private fun reorder(fromIndex: Int, toIndex: Int) {
+        viewModelScope.launch {
+            reorderWatchlistUseCase(fromIndex, toIndex, latestDomainItems)
+        }
+    }
+}
