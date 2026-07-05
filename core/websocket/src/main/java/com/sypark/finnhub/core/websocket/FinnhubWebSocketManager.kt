@@ -42,7 +42,7 @@ private data class SubscriptionMessage(val type: String, val symbol: String)
 
 @Singleton
 class FinnhubWebSocketManagerImpl @Inject constructor(
-    private val okHttpClient: OkHttpClient,
+    @WebSocketOkHttpClient private val okHttpClient: OkHttpClient,
     private val json: Json,
     private val appCoroutineScope: AppCoroutineScope,
     private val webSocketUrl: String,
