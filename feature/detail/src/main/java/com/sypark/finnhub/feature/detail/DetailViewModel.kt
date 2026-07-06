@@ -12,6 +12,7 @@ import com.sypark.finnhub.core.domain.usecase.detail.GetPeersUseCase
 import com.sypark.finnhub.core.domain.usecase.detail.GetQuoteUseCase
 import com.sypark.finnhub.core.domain.usecase.detail.GetStockMetricsUseCase
 import com.sypark.finnhub.core.domain.usecase.detail.GetStockProfileUseCase
+import com.sypark.finnhub.core.domain.usecase.detail.IsInWatchlistUseCase
 import com.sypark.finnhub.core.domain.usecase.detail.ToggleWatchlistUseCase
 import com.sypark.finnhub.core.ui.model.UiQuoteSource
 import com.sypark.finnhub.core.ui.util.changeDirectionOf
@@ -42,6 +43,7 @@ class DetailViewModel @Inject constructor(
     private val getCandlesUseCase: GetCandlesUseCase,
     private val getCompanyNewsUseCase: GetCompanyNewsUseCase,
     private val toggleWatchlistUseCase: ToggleWatchlistUseCase,
+    private val isInWatchlistUseCase: IsInWatchlistUseCase,
 ) : ViewModel() {
 
     private val symbol: String = savedStateHandle.get<String>("symbol").orEmpty()
@@ -76,7 +78,8 @@ class DetailViewModel @Inject constructor(
             val newsDeferred = async {
                 getCompanyNewsUseCase(symbol, isoDate(from * 1000), isoDate(to * 1000))
             }
-            awaitAll(quoteDeferred, profileDeferred, metricsDeferred, peersDeferred, candlesDeferred, newsDeferred)
+            val isInWatchlistDeferred = async { isInWatchlistUseCase(symbol) }
+            awaitAll(quoteDeferred, profileDeferred, metricsDeferred, peersDeferred, candlesDeferred, newsDeferred, isInWatchlistDeferred)
 
             val quoteResult = quoteDeferred.await()
             val assetType = AssetType.STOCK // Detail is entered from Watchlist/Search, both of which already resolved AssetType; a bare symbol string alone can't recover it, so price formatting below defaults to STOCK's $ format, and Task 51 threads the real AssetType through the nav arg as a follow-up if forex detail screens need FX-formatted headers.
@@ -112,6 +115,7 @@ class DetailViewModel @Inject constructor(
                 peers = (peersDeferred.await() as? AppResult.Success)?.data ?: emptyList(),
                 candles = (candlesDeferred.await() as? AppResult.Success)?.data?.map { CandleUi(it.timestamp, it.open, it.high, it.low, it.close) } ?: emptyList(),
                 news = (newsDeferred.await() as? AppResult.Success)?.data?.map { NewsUi(it.headline, it.source, it.url, it.imageUrl, it.datetime) } ?: emptyList(),
+                isInWatchlist = isInWatchlistDeferred.await(),
                 error = (quoteResult as? AppResult.Error)?.error,
             )
         }
