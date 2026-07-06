@@ -8,6 +8,14 @@ Finnhub API 기반 실시간 주식/환율 시세 Android 앱.
 - 워치리스트에 종목을 등록하면 실시간 가격 업데이트 표시
 - Finnhub 무료 티어 사용 (REST 60 req/min, WebSocket 동시 구독 50 symbols 제한 고려)
 
+## 화면
+
+| 워치리스트 (빈 상태) |
+|---|
+| <img src="docs/screenshots/watchlist-empty.png" width="320" /> |
+
+현재 워치리스트 화면까지 구현 완료(로딩/빈/에러/성공 상태, 스와이프 삭제, 드래그 재정렬, 당겨서 새로고침, FAB). 검색/상세/알림 화면은 개발 중입니다.
+
 ## 기술 스택
 
 - **언어**: Kotlin 1.9.24
@@ -46,19 +54,3 @@ feature/
 - **data**: Repository 구현체, DTO/Entity ↔ 도메인 모델 매퍼. DTO/Entity는 `core:data` 밖으로 노출되지 않음. API 응답은 `AppResult` sealed class로 래핑.
 - **presentation**: ViewModel은 UseCase만 주입받음(Repository 직접 참조 금지). 화면별 State/Intent/Effect 기반 MVI, 단방향 데이터 흐름(UDF).
 
-## WebSocket 설계
-
-- `wss://ws.finnhub.io?token=API_KEY`, 앱 전역에서 WebSocket 연결은 1개만 유지(Singleton)
-- 지수 백오프 재연결 (1s → 2s → ... 최대 30s), 재연결 성공 시 구독 목록 재전송
-- 실시간 체결 스트림은 스로틀링하여 UI 업데이트 부하 최소화
-
-## 시작하기
-
-1. `local.properties.sample`을 `local.properties`로 복사하고 Finnhub API 키를 채워넣기
-   ```
-   FINNHUB_API_KEY=your_finnhub_api_key_here
-   ```
-2. Android Studio에서 프로젝트 열기 (Java/Kotlin JVM target 1.8, compileSdk 34)
-3. `./gradlew :app:assembleDebug`로 빌드 확인
-
-API 키는 절대 커밋하지 않습니다 (`local.properties`는 gitignore 처리됨).
