@@ -127,4 +127,15 @@ class FinnhubApiServiceTest {
         val news = service.getCompanyNews(symbol = "AAPL", from = "2026-06-01", to = "2026-07-01")
         assertEquals("Apple announces...", news.single().headline)
     }
+
+    @Test
+    fun `getEarningsCalendar parses the earningsCalendar wrapper`() = runTest {
+        server.enqueue(
+            MockResponse().setBody(
+                """{"earningsCalendar":[{"date":"2026-07-15","epsEstimate":1.5,"epsActual":null,"revenueEstimate":null,"revenueActual":null,"symbol":"AAPL"}]}""",
+            ),
+        )
+        val response = service.getEarningsCalendar(from = "2026-07-01", to = "2026-07-31", symbol = "AAPL")
+        assertEquals("AAPL", response.earningsCalendar.single().symbol)
+    }
 }

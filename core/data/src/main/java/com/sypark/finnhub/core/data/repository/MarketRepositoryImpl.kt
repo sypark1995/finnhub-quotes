@@ -100,9 +100,6 @@ class MarketRepositoryImpl @Inject constructor(
         }
     }
 
-    // getStockProfile / getStockMetrics / getPeers / getCompanyNews / getEarningsCalendar
-    // are implemented across Tasks 38–40 as modifications to this class.
-
     override suspend fun getCandles(symbol: String, resolution: String, from: Long, to: Long): AppResult<List<Candle>> =
         withContext(dispatchers.io) {
             val now = nowProvider()
@@ -142,12 +139,27 @@ class MarketRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun getPeers(symbol: String): AppResult<List<String>> =
-        throw NotImplementedError("getPeers() is implemented in Task 27")
+    override suspend fun getPeers(symbol: String): AppResult<List<String>> = withContext(dispatchers.io) {
+        try {
+            AppResult.Success(apiService.getPeers(symbol))
+        } catch (throwable: Throwable) {
+            AppResult.Error(mapNetworkError(throwable))
+        }
+    }
 
-    override suspend fun getCompanyNews(symbol: String, from: String, to: String): AppResult<List<News>> =
-        throw NotImplementedError("getCompanyNews() is implemented in Task 27")
+    override suspend fun getCompanyNews(symbol: String, from: String, to: String): AppResult<List<News>> = withContext(dispatchers.io) {
+        try {
+            AppResult.Success(apiService.getCompanyNews(symbol, from, to).map { it.toDomain() })
+        } catch (throwable: Throwable) {
+            AppResult.Error(mapNetworkError(throwable))
+        }
+    }
 
-    override suspend fun getEarningsCalendar(from: String, to: String, symbol: String?): AppResult<List<EarningsEvent>> =
-        throw NotImplementedError("getEarningsCalendar() is implemented in Task 27")
+    override suspend fun getEarningsCalendar(from: String, to: String, symbol: String?): AppResult<List<EarningsEvent>> = withContext(dispatchers.io) {
+        try {
+            AppResult.Success(apiService.getEarningsCalendar(from, to, symbol).earningsCalendar.map { it.toDomain() })
+        } catch (throwable: Throwable) {
+            AppResult.Error(mapNetworkError(throwable))
+        }
+    }
 }

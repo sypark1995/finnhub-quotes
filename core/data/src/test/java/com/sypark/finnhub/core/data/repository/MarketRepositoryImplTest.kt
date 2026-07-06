@@ -284,4 +284,32 @@ class MarketRepositoryImplTest {
         assertTrue(result is AppResult.Success)
         assertEquals(32.5, (result as AppResult.Success).data.peRatio)
     }
+
+    @Test
+    fun `getPeers returns the raw symbol list wrapped in AppResult`() = runTest {
+        coEvery { apiService.getPeers("AAPL") } returns listOf("MSFT", "GOOGL")
+        val result = repository.getPeers("AAPL")
+        assertTrue(result is AppResult.Success)
+        assertEquals(listOf("MSFT", "GOOGL"), (result as AppResult.Success).data)
+    }
+
+    @Test
+    fun `getCompanyNews maps every DTO to a domain News`() = runTest {
+        coEvery { apiService.getCompanyNews("AAPL", "2026-06-01", "2026-07-01") } returns listOf(
+            com.sypark.finnhub.core.network.dto.CompanyNewsDto(1, "Headline", "Reuters", "https://x", 1L, "...", "https://x/i.png"),
+        )
+        val result = repository.getCompanyNews("AAPL", "2026-06-01", "2026-07-01")
+        assertTrue(result is AppResult.Success)
+        assertEquals(1, (result as AppResult.Success).data.size)
+    }
+
+    @Test
+    fun `getEarningsCalendar maps every DTO to a domain EarningsEvent`() = runTest {
+        coEvery { apiService.getEarningsCalendar("2026-07-01", "2026-07-31", "AAPL") } returns com.sypark.finnhub.core.network.dto.EarningsCalendarResponseDto(
+            listOf(com.sypark.finnhub.core.network.dto.EarningsEventDto("2026-07-15", 1.5, null, null, null, "AAPL")),
+        )
+        val result = repository.getEarningsCalendar("2026-07-01", "2026-07-31", "AAPL")
+        assertTrue(result is AppResult.Success)
+        assertEquals("AAPL", (result as AppResult.Success).data.single().symbol)
+    }
 }
