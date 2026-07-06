@@ -25,6 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -35,6 +36,7 @@ import com.sypark.finnhub.core.ui.model.UiQuoteSource
 import com.sypark.finnhub.core.ui.theme.AppTheme
 import com.sypark.finnhub.core.ui.theme.FinnhubQuotesTheme
 import com.sypark.finnhub.core.ui.theme.PriceTypographyMedium
+import com.sypark.finnhub.core.ui.theme.ShapeCard
 import com.sypark.finnhub.core.ui.theme.ShapeSmall
 import com.sypark.finnhub.core.ui.theme.Spacing
 import kotlinx.coroutines.delay
@@ -65,13 +67,14 @@ fun QuoteRow(
         delay(150)
         flashing = false
     }
+    val cardColor = MaterialTheme.colorScheme.surfaceVariant
     val flashTargetColor = when (changeDirection) {
         ChangeDirection.UP -> extended.gainContainer
         ChangeDirection.DOWN -> extended.lossContainer
-        ChangeDirection.FLAT -> MaterialTheme.colorScheme.surfaceVariant
+        ChangeDirection.FLAT -> cardColor
     }
     val backgroundColor by animateColorAsState(
-        targetValue = if (flashing) flashTargetColor.copy(alpha = 0.3f) else Color.Transparent,
+        targetValue = if (flashing) flashTargetColor.copy(alpha = 0.5f) else cardColor,
         animationSpec = tween(durationMillis = 150),
         label = "quoteRowFlash",
     )
@@ -85,6 +88,7 @@ fun QuoteRow(
         modifier = modifier
             .fillMaxWidth()
             .height(Spacing.quoteRowHeight)
+            .clip(ShapeCard)
             .background(backgroundColor)
             .clickable(onClick = onClick)
             .padding(horizontal = Spacing.space4),
