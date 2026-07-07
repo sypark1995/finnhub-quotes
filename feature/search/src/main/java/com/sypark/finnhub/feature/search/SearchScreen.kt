@@ -9,13 +9,18 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -25,8 +30,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.sypark.finnhub.core.ui.component.EmptyState
 import com.sypark.finnhub.core.ui.theme.ShapeCard
 import com.sypark.finnhub.core.ui.theme.ShapePill
 import com.sypark.finnhub.core.ui.theme.Spacing
@@ -92,8 +99,7 @@ fun SearchScreen(
 
         androidx.compose.foundation.layout.Spacer(Modifier.padding(top = Spacing.space2))
 
-        // Task 30 replaces this line with the result list + empty/no-result states.
-        SearchResultsPlaceholder(state = state, onIntent = onIntent)
+        SearchResults(state = state, onIntent = onIntent)
     }
 }
 
@@ -119,6 +125,68 @@ private fun FilterPill(
 }
 
 @Composable
-private fun SearchResultsPlaceholder(state: SearchState, onIntent: (SearchIntent) -> Unit) {
-    // Intentionally minimal — Task 30 is the real implementation of this region.
+private fun SearchResults(state: SearchState, onIntent: (SearchIntent) -> Unit) {
+    when {
+        state.query.isBlank() -> EmptyState(
+            title = "종목·환율을 검색해 보세요",
+            description = "심볼이나 회사명을 입력하면 결과가 표시됩니다",
+            ctaLabel = null,
+            onCtaClick = null,
+        )
+        state.isSearching -> LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        state.results.isEmpty() -> EmptyState(
+            title = "검색 결과가 없습니다",
+            description = "다른 검색어로 다시 시도해 보세요",
+            ctaLabel = null,
+            onCtaClick = null,
+        )
+        else -> LazyColumn {
+            items(items = state.results, key = { it.symbol }) { result ->
+                SearchResultRow(
+                    result = result,
+                    onToggleWatchlist = {
+                        if (result.isInWatchlist) {
+                            onIntent(SearchIntent.RemoveFromWatchlist(result.symbol))
+                        } else {
+                            onIntent(SearchIntent.AddToWatchlist(result))
+                        }
+                    },
+                    onClick = { onIntent(SearchIntent.OpenDetail(result.symbol)) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchResultRow(
+    result: SearchResultUi,
+    onToggleWatchlist: () -> Unit,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = Spacing.space4, vertical = Spacing.space3),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = result.symbol, style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = result.description,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        IconButton(onClick = onToggleWatchlist) {
+            Icon(
+                imageVector = if (result.isInWatchlist) Icons.Filled.Star else Icons.Filled.Add,
+                contentDescription = if (result.isInWatchlist) "관심종목에서 제거" else "관심종목에 추가",
+                tint = if (result.isInWatchlist) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+            )
+        }
+    }
 }
