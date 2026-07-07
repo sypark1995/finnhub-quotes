@@ -21,12 +21,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.sypark.finnhub.core.ui.model.ConnectionBannerState
 import com.sypark.finnhub.core.ui.theme.AppTheme
 import com.sypark.finnhub.core.ui.theme.FinnhubQuotesTheme
+import com.sypark.finnhub.core.ui.theme.ShapeCard
 import com.sypark.finnhub.core.ui.theme.Spacing
 
 private data class BannerSpec(val backgroundAlphaColor: androidx.compose.ui.graphics.Color, val dotColor: androidx.compose.ui.graphics.Color, val text: String, val pulsing: Boolean)
@@ -52,7 +54,9 @@ fun ConnectionBanner(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(36.dp)
+                .padding(horizontal = Spacing.space4, vertical = Spacing.space2)
+                .height(40.dp)
+                .clip(ShapeCard)
                 .background(targetSpec.backgroundAlphaColor)
                 .padding(horizontal = Spacing.space4),
             verticalAlignment = Alignment.CenterVertically,
