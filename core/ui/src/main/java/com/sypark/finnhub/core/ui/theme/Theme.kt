@@ -1,6 +1,5 @@
 package com.sypark.finnhub.core.ui.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
@@ -17,7 +16,9 @@ import android.os.Build
 
 @Composable
 fun FinnhubQuotesTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    // ui-design.md §2.1 "다크 모드 기본" — Binance-style exchange apps default to dark
+    // regardless of system setting; users can still override via app-level settings later.
+    darkTheme: Boolean = true,
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit,
 ) {
