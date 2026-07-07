@@ -11,6 +11,8 @@ import com.sypark.finnhub.core.domain.model.Quote
 import com.sypark.finnhub.core.domain.model.QuoteSource
 import com.sypark.finnhub.core.network.FinnhubApiService
 import com.sypark.finnhub.core.network.dto.QuoteDto
+import com.sypark.finnhub.core.network.dto.SearchResponseDto
+import com.sypark.finnhub.core.network.dto.SearchResultDto
 import com.sypark.finnhub.core.websocket.ConnectionState
 import com.sypark.finnhub.core.websocket.FinnhubWebSocketManager
 import com.sypark.finnhub.core.websocket.TradeMessage
@@ -217,5 +219,24 @@ class MarketRepositoryImplTest {
             attempts++
         }
         assertFalse(cacheCollecting.value)
+    }
+
+    @Test
+    fun `search maps every DTO result to a domain SearchResult`() = runTest {
+        coEvery { apiService.search("AAPL") } returns com.sypark.finnhub.core.network.dto.SearchResponseDto(
+            count = 1,
+            result = listOf(com.sypark.finnhub.core.network.dto.SearchResultDto("APPLE INC", "AAPL", "AAPL", "Common Stock")),
+        )
+
+        val result = repository.search("AAPL")
+
+        assertTrue(result is AppResult.Success)
+        assertEquals("AAPL", (result as AppResult.Success).data.single().symbol)
+    }
+
+    @Test
+    fun `search returns an error AppResult when the call fails`() = runTest {
+        coEvery { apiService.search("AAPL") } throws IOException("offline")
+        assertTrue(repository.search("AAPL") is AppResult.Error)
     }
 }

@@ -88,15 +88,16 @@ class MarketRepositoryImpl @Inject constructor(
         }
     }
 
-    // search / getCandles / getStockProfile / getStockMetrics / getPeers / getCompanyNews /
-    // getEarningsCalendar are implemented across Tasks 26–27 as modifications to this class.
-    // `MarketRepository` declares all 10 methods as abstract (no default bodies), so a concrete
-    // class must override every one of them to compile; these 7 are stubbed here (rather than
-    // omitted, as the brief's sample code did) purely so this task's 3 methods can be built,
-    // tested, and bound via Hilt today. Each stub is replaced with a real implementation by the
-    // task that owns it.
-    override suspend fun search(query: String): AppResult<List<SearchResult>> =
-        throw NotImplementedError("search() is implemented in Task 26")
+    override suspend fun search(query: String): AppResult<List<SearchResult>> = withContext(dispatchers.io) {
+        try {
+            AppResult.Success(apiService.search(query).result.map { it.toDomain() })
+        } catch (throwable: Throwable) {
+            AppResult.Error(mapNetworkError(throwable))
+        }
+    }
+
+    // getCandles / getStockProfile / getStockMetrics / getPeers / getCompanyNews /
+    // getEarningsCalendar are implemented across Tasks 37–40 as modifications to this class.
 
     override suspend fun getCandles(symbol: String, resolution: String, from: Long, to: Long): AppResult<List<Candle>> =
         throw NotImplementedError("getCandles() is implemented in Task 26")
