@@ -1,23 +1,37 @@
 // core/ui/src/main/java/com/sypark/finnhub/core/ui/component/AppBottomBar.kt
 package com.sypark.finnhub.core.ui.component
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Badge
-import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.sypark.finnhub.core.ui.theme.AppTheme
 import com.sypark.finnhub.core.ui.theme.FinnhubQuotesTheme
+import com.sypark.finnhub.core.ui.theme.ShapePill
+import com.sypark.finnhub.core.ui.theme.Spacing
 
 enum class BottomNavTab(val label: String) {
     HOME("홈"),
@@ -33,28 +47,54 @@ fun AppBottomBar(
     onTabSelected: (BottomNavTab) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    NavigationBar(modifier = modifier) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = Spacing.space4, vertical = Spacing.space3)
+            .clip(ShapePill)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(vertical = Spacing.space2),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+    ) {
         BottomNavTab.entries.forEach { tab ->
-            NavigationBarItem(
-                selected = tab == selectedTab,
-                onClick = { onTabSelected(tab) },
-                icon = {
+            val selected = tab == selectedTab
+            val tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .clip(ShapePill)
+                    .clickable(onClick = { onTabSelected(tab) })
+                    .padding(horizontal = Spacing.space3, vertical = Spacing.space1),
+            ) {
+                Box {
                     val icon = when (tab) {
                         BottomNavTab.HOME -> Icons.Filled.Home
                         BottomNavTab.SEARCH -> Icons.Filled.Search
                         BottomNavTab.ALERTS -> Icons.Filled.Notifications
                         BottomNavTab.SETTINGS -> Icons.Filled.Settings
                     }
+                    Icon(imageVector = icon, contentDescription = tab.label, tint = tint, modifier = Modifier.size(24.dp))
                     if (tab == BottomNavTab.ALERTS && alertBadgeCount > 0) {
-                        BadgedBox(badge = { Badge { Text(alertBadgeCount.toString()) } }) {
-                            Icon(imageVector = icon, contentDescription = tab.label, modifier = Modifier.size(24.dp))
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .offset(x = 4.dp, y = (-2).dp)
+                                .size(16.dp)
+                                .clip(CircleShape)
+                                .background(AppTheme.extended.loss),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = alertBadgeCount.toString(),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White,
+                                textAlign = TextAlign.Center,
+                            )
                         }
-                    } else {
-                        Icon(imageVector = icon, contentDescription = tab.label, modifier = Modifier.size(24.dp))
                     }
-                },
-                label = { Text(tab.label) },
-            )
+                }
+                Text(text = tab.label, style = MaterialTheme.typography.labelSmall, color = tint)
+            }
         }
     }
 }
