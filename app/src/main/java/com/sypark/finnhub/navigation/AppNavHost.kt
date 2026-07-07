@@ -31,8 +31,11 @@ fun AppNavHost(navController: NavHostController) {
             }
         }
         composable<Route.Search> {
-            AppScaffold(navController = navController, currentRoute = Route.Search) {
-                PlaceholderScreen(title = "검색", modifier = Modifier.padding(it))
+            AppScaffold(navController = navController, currentRoute = Route.Search) { padding ->
+                com.sypark.finnhub.feature.search.SearchRoute(
+                    onNavigateToDetail = { symbol -> navController.navigate(Route.Detail(symbol)) },
+                    modifier = androidx.compose.ui.Modifier.padding(padding),
+                )
             }
         }
         composable<Route.Detail> { entry ->
