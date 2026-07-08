@@ -7,6 +7,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -28,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sypark.finnhub.core.ui.component.PriceChangeBadge
@@ -230,7 +233,55 @@ private fun ProfileTab(state: DetailState) {
 
 @Composable
 private fun NewsTab(state: DetailState) {
-    Text(text = "뉴스 (준비 중)", modifier = Modifier.padding(Spacing.space4))
+    val context = androidx.compose.ui.platform.LocalContext.current
+    if (state.news.isEmpty()) {
+        com.sypark.finnhub.core.ui.component.EmptyState(
+            title = "관련 뉴스가 없습니다",
+            description = "최근 발행된 기사가 없어요",
+            ctaLabel = null,
+            onCtaClick = null,
+        )
+        return
+    }
+    androidx.compose.foundation.lazy.LazyColumn {
+        items(items = state.news, key = { it.url }) { news ->
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        androidx.browser.customtabs.CustomTabsIntent.Builder().build().launchUrl(context, android.net.Uri.parse(news.url))
+                    }
+                    .padding(horizontal = Spacing.space4, vertical = Spacing.space3),
+            ) {
+                Text(
+                    text = news.headline,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 2,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = "${news.source} · ${relativeTime(news.datetime)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            androidx.compose.foundation.layout.Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(MaterialTheme.colorScheme.outline),
+            )
+        }
+    }
+}
+
+private fun relativeTime(epochMillis: Long): String {
+    val diffMinutes = (System.currentTimeMillis() - epochMillis) / 60_000
+    return when {
+        diffMinutes < 60 -> "${diffMinutes}분 전"
+        diffMinutes < 1_440 -> "${diffMinutes / 60}시간 전"
+        else -> "${diffMinutes / 1_440}일 전"
+    }
 }
 
 @Composable
