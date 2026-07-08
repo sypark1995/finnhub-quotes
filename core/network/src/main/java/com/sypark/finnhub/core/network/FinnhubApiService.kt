@@ -3,6 +3,7 @@ package com.sypark.finnhub.core.network
 import com.sypark.finnhub.core.network.dto.CandleResponseDto
 import com.sypark.finnhub.core.network.dto.QuoteDto
 import com.sypark.finnhub.core.network.dto.SearchResponseDto
+import com.sypark.finnhub.core.network.dto.StockProfileDto
 import retrofit2.http.GET
 import retrofit2.http.Query
 
@@ -28,4 +29,7 @@ interface FinnhubApiService {
         @Query("from") from: Long,
         @Query("to") to: Long,
     ): CandleResponseDto
+
+    @GET("stock/profile2")
+    suspend fun getStockProfile(@Query("symbol") symbol: String): StockProfileDto
 }
