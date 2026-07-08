@@ -1,9 +1,13 @@
 package com.sypark.finnhub.core.database.entity
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "candle_cache")
+@Entity(
+    tableName = "candle_cache",
+    indices = [Index(value = ["symbol", "resolution", "timestamp"], unique = true)],
+)
 data class CandleCacheEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val symbol: String,

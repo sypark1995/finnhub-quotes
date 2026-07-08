@@ -12,7 +12,7 @@ import com.sypark.finnhub.core.database.entity.WatchlistEntity
 
 @Database(
     entities = [WatchlistEntity::class, QuoteCacheEntity::class, CandleCacheEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
