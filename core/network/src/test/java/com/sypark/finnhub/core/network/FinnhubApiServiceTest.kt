@@ -1,6 +1,7 @@
 package com.sypark.finnhub.core.network
 
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
+import java.net.URLDecoder
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
@@ -64,5 +65,24 @@ class FinnhubApiServiceTest {
         assertEquals(1, response.count)
         assertEquals("AAPL", response.result.single().symbol)
         assertEquals("/search?q=AAPL", server.takeRequest().path)
+    }
+
+    @Test
+    fun `getStockCandles parses Finnhub's parallel-array OHLCV JSON`() = runTest {
+        server.enqueue(
+            MockResponse().setBody(
+                """{"c":[198.5],"h":[199.1],"l":[196.8],"o":[197.2],"s":"ok","t":[1720000000],"v":[1000]}""",
+            ),
+        )
+        val dto = service.getStockCandles(symbol = "AAPL", resolution = "D", from = 1, to = 2)
+        assertEquals("ok", dto.s)
+        assertEquals(198.5, dto.c.single())
+    }
+
+    @Test
+    fun `getForexCandles hits the forex candle path`() = runTest {
+        server.enqueue(MockResponse().setBody("""{"c":[],"h":[],"l":[],"o":[],"s":"no_data","t":[],"v":[]}"""))
+        service.getForexCandles(symbol = "OANDA:EUR_USD", resolution = "D", from = 1, to = 2)
+        assertEquals("/forex/candle?symbol=OANDA:EUR_USD&resolution=D&from=1&to=2", URLDecoder.decode(server.takeRequest().path, "UTF-8"))
     }
 }
