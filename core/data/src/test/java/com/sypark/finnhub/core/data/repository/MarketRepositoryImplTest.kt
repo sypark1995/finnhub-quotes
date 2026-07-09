@@ -266,4 +266,12 @@ class MarketRepositoryImplTest {
         assertTrue(result is AppResult.Success)
         io.mockk.coVerify(exactly = 0) { apiService.getStockCandles(any(), any(), any(), any()) }
     }
+
+    @Test
+    fun `getStockProfile maps the DTO to a domain StockProfile`() = runTest {
+        coEvery { apiService.getStockProfile("AAPL") } returns com.sypark.finnhub.core.network.dto.StockProfileDto(name = "Apple Inc")
+        val result = repository.getStockProfile("AAPL")
+        assertTrue(result is AppResult.Success)
+        assertEquals("Apple Inc", (result as AppResult.Success).data.name)
+    }
 }
