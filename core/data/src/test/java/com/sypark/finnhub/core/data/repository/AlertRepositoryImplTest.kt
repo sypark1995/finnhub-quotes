@@ -35,6 +35,13 @@ class AlertRepositoryImplTest {
     }
 
     @Test
+    fun `update delegates to the DAO's targeted column update, leaving createdAt untouched`() = runTest {
+        val result = repository.update(PriceAlert(1, "AAPL", 220.0, AlertCondition.BELOW, false, null))
+        assertTrue(result is AppResult.Success)
+        coVerify { dao.update(1L, 220.0, AlertCondition.BELOW, false) }
+    }
+
+    @Test
     fun `markTriggered delegates to the DAO with the current time`() = runTest {
         repository.markTriggered(1L)
         coVerify { dao.markTriggered(1L, any()) }

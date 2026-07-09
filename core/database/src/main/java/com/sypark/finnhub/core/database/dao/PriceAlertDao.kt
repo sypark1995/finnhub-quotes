@@ -3,7 +3,7 @@ package com.sypark.finnhub.core.database.dao
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
-import androidx.room.Update
+import com.sypark.finnhub.core.common.AlertCondition
 import com.sypark.finnhub.core.database.entity.PriceAlertEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -21,8 +21,10 @@ interface PriceAlertDao {
     @Insert
     suspend fun insert(entity: PriceAlertEntity): Long
 
-    @Update
-    suspend fun update(entity: PriceAlertEntity)
+    // Deliberately a targeted column update (not @Update on the full entity) so createdAt
+    // is never touched — preserves original creation time for observeAll()'s ORDER BY.
+    @Query("UPDATE price_alert SET targetPrice = :targetPrice, condition = :condition, isEnabled = :isEnabled WHERE id = :id")
+    suspend fun update(id: Long, targetPrice: Double, condition: AlertCondition, isEnabled: Boolean)
 
     @Query("DELETE FROM price_alert WHERE id = :id")
     suspend fun delete(id: Long)
