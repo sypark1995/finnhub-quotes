@@ -2,11 +2,15 @@
 package com.sypark.finnhub.feature.detail
 
 import androidx.compose.animation.Crossfade
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Star
@@ -146,7 +150,54 @@ private fun tabLabel(tab: DetailTab): String = when (tab) {
 // replacing exactly one of these four with its real implementation.
 @Composable
 private fun ChartTab(state: DetailState, onIntent: (DetailIntent) -> Unit) {
-    Text(text = "차트 (준비 중)", modifier = Modifier.padding(Spacing.space4))
+    Column {
+        com.sypark.finnhub.core.ui.chart.CandlestickChart(
+            candles = state.candles.map {
+                com.sypark.finnhub.core.ui.chart.CandlestickChartEntry(it.timestamp, it.open, it.high, it.low, it.close)
+            },
+            modifier = Modifier.padding(horizontal = Spacing.space4),
+        )
+        androidx.compose.foundation.lazy.LazyRow(
+            modifier = Modifier.padding(horizontal = Spacing.space4, vertical = Spacing.space2),
+            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(Spacing.space2),
+        ) {
+            items(ChartResolution.entries) { resolution ->
+                FilterPill(
+                    label = resolutionLabel(resolution),
+                    selected = resolution == state.chartResolution,
+                    onClick = { onIntent(DetailIntent.ChangeResolution(resolution)) },
+                )
+            }
+        }
+    }
+}
+
+private fun resolutionLabel(resolution: ChartResolution): String = when (resolution) {
+    ChartResolution.MINUTE_5 -> "5분"
+    ChartResolution.HOUR_1 -> "1시간"
+    ChartResolution.DAY -> "1D"
+    ChartResolution.WEEK -> "1W"
+}
+
+@Composable
+private fun FilterPill(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val containerColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+    val contentColor = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+    Row(
+        modifier = modifier
+            .clip(com.sypark.finnhub.core.ui.theme.ShapePill)
+            .background(containerColor)
+            .clickable(onClick = onClick)
+            .padding(horizontal = Spacing.space4, vertical = Spacing.space2),
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+    ) {
+        Text(text = label, style = MaterialTheme.typography.labelLarge, color = contentColor)
+    }
 }
 
 @Composable
