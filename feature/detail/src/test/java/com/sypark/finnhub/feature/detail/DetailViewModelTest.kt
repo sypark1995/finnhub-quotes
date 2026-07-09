@@ -12,6 +12,7 @@ import com.sypark.finnhub.core.domain.usecase.detail.GetPeersUseCase
 import com.sypark.finnhub.core.domain.usecase.detail.GetQuoteUseCase
 import com.sypark.finnhub.core.domain.usecase.detail.GetStockMetricsUseCase
 import com.sypark.finnhub.core.domain.usecase.detail.GetStockProfileUseCase
+import com.sypark.finnhub.core.domain.usecase.detail.IsInWatchlistUseCase
 import com.sypark.finnhub.core.domain.usecase.detail.ToggleWatchlistUseCase
 import io.mockk.coEvery
 import io.mockk.mockk
@@ -37,6 +38,7 @@ class DetailViewModelTest {
     private val getCandlesUseCase = mockk<GetCandlesUseCase>()
     private val getCompanyNewsUseCase = mockk<GetCompanyNewsUseCase>()
     private val toggleWatchlistUseCase = mockk<ToggleWatchlistUseCase>()
+    private val isInWatchlistUseCase = mockk<IsInWatchlistUseCase>()
 
     @BeforeEach
     fun setUp() {
@@ -51,6 +53,7 @@ class DetailViewModelTest {
         coEvery { getPeersUseCase("AAPL") } returns AppResult.Success(listOf("MSFT"))
         coEvery { getCandlesUseCase("AAPL", "D", any(), any()) } returns AppResult.Success(emptyList())
         coEvery { getCompanyNewsUseCase("AAPL", any(), any()) } returns AppResult.Success(emptyList())
+        coEvery { isInWatchlistUseCase("AAPL") } returns false
     }
 
     @AfterEach
@@ -59,7 +62,7 @@ class DetailViewModelTest {
     private fun buildViewModel() = DetailViewModel(
         SavedStateHandle(mapOf("symbol" to "AAPL")),
         getQuoteUseCase, getStockProfileUseCase, getStockMetricsUseCase,
-        getPeersUseCase, getCandlesUseCase, getCompanyNewsUseCase, toggleWatchlistUseCase,
+        getPeersUseCase, getCandlesUseCase, getCompanyNewsUseCase, toggleWatchlistUseCase, isInWatchlistUseCase,
     )
 
     @Test
@@ -74,6 +77,17 @@ class DetailViewModelTest {
         assertEquals("Apple Inc.", state.profile?.name)
         assertEquals(listOf("MSFT"), state.peers)
         assertEquals(false, state.isLoading)
+    }
+
+    @Test
+    fun `Load initializes isInWatchlist from the repository's actual membership`() = runTest(dispatcher) {
+        coEvery { isInWatchlistUseCase("AAPL") } returns true
+        val viewModel = buildViewModel()
+
+        viewModel.onIntent(DetailIntent.Load)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(true, viewModel.state.value.isInWatchlist)
     }
 
     @Test
