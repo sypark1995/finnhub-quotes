@@ -274,4 +274,14 @@ class MarketRepositoryImplTest {
         assertTrue(result is AppResult.Success)
         assertEquals("Apple Inc", (result as AppResult.Success).data.name)
     }
+
+    @Test
+    fun `getStockMetrics maps the nested metric DTO to a domain StockMetrics`() = runTest {
+        coEvery { apiService.getStockMetrics("AAPL", "all") } returns com.sypark.finnhub.core.network.dto.StockMetricResponseDto(
+            com.sypark.finnhub.core.network.dto.StockMetricDto(peRatio = 32.5),
+        )
+        val result = repository.getStockMetrics("AAPL")
+        assertTrue(result is AppResult.Success)
+        assertEquals(32.5, (result as AppResult.Success).data.peRatio)
+    }
 }

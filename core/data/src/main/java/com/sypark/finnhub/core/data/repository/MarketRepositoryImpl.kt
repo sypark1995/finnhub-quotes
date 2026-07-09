@@ -134,8 +134,13 @@ class MarketRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun getStockMetrics(symbol: String): AppResult<StockMetrics> =
-        throw NotImplementedError("getStockMetrics() is implemented in Task 27")
+    override suspend fun getStockMetrics(symbol: String): AppResult<StockMetrics> = withContext(dispatchers.io) {
+        try {
+            AppResult.Success(apiService.getStockMetrics(symbol).toDomain(symbol))
+        } catch (throwable: Throwable) {
+            AppResult.Error(mapNetworkError(throwable))
+        }
+    }
 
     override suspend fun getPeers(symbol: String): AppResult<List<String>> =
         throw NotImplementedError("getPeers() is implemented in Task 27")
