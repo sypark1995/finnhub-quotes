@@ -202,7 +202,30 @@ private fun FilterPill(
 
 @Composable
 private fun ProfileTab(state: DetailState) {
-    Text(text = "프로필 (준비 중)", modifier = Modifier.padding(Spacing.space4))
+    val profile = state.profile
+    val metrics = state.metrics
+    Column(modifier = Modifier.padding(Spacing.space4)) {
+        if (profile != null) {
+            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Text(text = profile.name, style = MaterialTheme.typography.titleLarge)
+            }
+            Text(
+                text = "${profile.industry} · ${profile.exchange}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            androidx.compose.foundation.layout.Spacer(Modifier.padding(top = Spacing.space4))
+            com.sypark.finnhub.core.ui.component.KeyValueRow(label = "시가총액", value = profile.marketCapText)
+        }
+        if (metrics != null) {
+            com.sypark.finnhub.core.ui.component.KeyValueRow(label = "PER", value = metrics.peRatioText)
+            com.sypark.finnhub.core.ui.component.KeyValueRow(label = "52주 최고", value = metrics.week52HighText)
+            com.sypark.finnhub.core.ui.component.KeyValueRow(label = "52주 최저", value = metrics.week52LowText, showDivider = false)
+        }
+        if (profile == null && metrics == null) {
+            Text(text = "프로필 정보를 불러올 수 없습니다", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
 }
 
 @Composable
