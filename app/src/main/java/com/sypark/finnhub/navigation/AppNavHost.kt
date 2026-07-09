@@ -40,8 +40,13 @@ fun AppNavHost(navController: NavHostController) {
         }
         composable<Route.Detail> { entry ->
             val route = entry.toRoute<Route.Detail>()
-            AppScaffold(navController = navController, currentRoute = route) {
-                PlaceholderScreen(title = "상세 · ${route.symbol}", modifier = Modifier.padding(it))
+            AppScaffold(navController = navController, currentRoute = route) { padding ->
+                com.sypark.finnhub.feature.detail.DetailRoute(
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToAlertCreate = { symbol -> navController.navigate(Route.AlertCreate(symbol)) },
+                    onNavigateToPeerDetail = { symbol -> navController.navigate(Route.Detail(symbol)) },
+                    modifier = androidx.compose.ui.Modifier.padding(padding),
+                )
             }
         }
         composable<Route.Alerts> {
