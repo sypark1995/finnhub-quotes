@@ -1,7 +1,9 @@
 package com.sypark.finnhub.core.data.di
 
+import com.sypark.finnhub.core.data.repository.AlertRepositoryImpl
 import com.sypark.finnhub.core.data.repository.MarketRepositoryImpl
 import com.sypark.finnhub.core.data.repository.WatchlistRepositoryImpl
+import com.sypark.finnhub.core.domain.repository.AlertRepository
 import com.sypark.finnhub.core.domain.repository.MarketRepository
 import com.sypark.finnhub.core.domain.repository.WatchlistRepository
 import dagger.Binds
@@ -22,6 +24,10 @@ abstract class DataModule {
     @Binds
     @Singleton
     abstract fun bindMarketRepository(impl: MarketRepositoryImpl): MarketRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindAlertRepository(impl: AlertRepositoryImpl): AlertRepository
 
     companion object {
         // Dagger doesn't honor Kotlin default parameter values on @Inject constructors,
