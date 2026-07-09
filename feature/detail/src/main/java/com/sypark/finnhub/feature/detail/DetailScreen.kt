@@ -286,5 +286,25 @@ private fun relativeTime(epochMillis: Long): String {
 
 @Composable
 private fun PeersTab(state: DetailState, onNavigateToPeerDetail: (String) -> Unit) {
-    Text(text = "Peers (준비 중)", modifier = Modifier.padding(Spacing.space4))
+    if (state.peers.isEmpty()) {
+        com.sypark.finnhub.core.ui.component.EmptyState(
+            title = "동종 업종 정보가 없습니다",
+            description = "",
+            ctaLabel = null,
+            onCtaClick = null,
+        )
+        return
+    }
+    androidx.compose.foundation.lazy.LazyRow(
+        modifier = Modifier.padding(Spacing.space4),
+        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(Spacing.space2),
+    ) {
+        items(items = state.peers, key = { it }) { peer ->
+            FilterPill(
+                label = peer,
+                selected = false,
+                onClick = { onNavigateToPeerDetail(peer) },
+            )
+        }
+    }
 }
