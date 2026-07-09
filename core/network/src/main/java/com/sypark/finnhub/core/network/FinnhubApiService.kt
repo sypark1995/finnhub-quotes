@@ -2,6 +2,7 @@ package com.sypark.finnhub.core.network
 
 import com.sypark.finnhub.core.network.dto.CandleResponseDto
 import com.sypark.finnhub.core.network.dto.CompanyNewsDto
+import com.sypark.finnhub.core.network.dto.EarningsCalendarResponseDto
 import com.sypark.finnhub.core.network.dto.QuoteDto
 import com.sypark.finnhub.core.network.dto.SearchResponseDto
 import com.sypark.finnhub.core.network.dto.StockMetricResponseDto
@@ -47,4 +48,11 @@ interface FinnhubApiService {
         @Query("from") from: String,
         @Query("to") to: String,
     ): List<CompanyNewsDto>
+
+    @GET("calendar/earnings")
+    suspend fun getEarningsCalendar(
+        @Query("from") from: String,
+        @Query("to") to: String,
+        @Query("symbol") symbol: String?,
+    ): EarningsCalendarResponseDto
 }
