@@ -29,7 +29,7 @@ class AlertRepositoryImpl @Inject constructor(
     }
 
     override suspend fun update(alert: PriceAlert): AppResult<Unit> = withContext(dispatchers.io) {
-        runCatching { dao.update(alert.toEntity(createdAt = System.currentTimeMillis())) }
+        runCatching { dao.update(alert.id, alert.targetPrice, alert.condition, alert.isEnabled) }
             .fold({ AppResult.Success(Unit) }, { AppResult.Error(UiError.Unknown(it.message ?: "update failed")) })
     }
 

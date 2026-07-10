@@ -54,6 +54,19 @@ class PriceAlertDaoTest {
     }
 
     @Test
+    fun `update changes targetPrice, condition, and isEnabled but preserves createdAt`() = runTest {
+        val id = dao.insert(PriceAlertEntity(symbol = "AAPL", targetPrice = 210.0, condition = AlertCondition.ABOVE, isEnabled = true, createdAt = 1L))
+        dao.update(id, targetPrice = 220.0, condition = AlertCondition.BELOW, isEnabled = false)
+        dao.observeAll().test {
+            val updated = awaitItem().single()
+            assertEquals(220.0, updated.targetPrice)
+            assertEquals(AlertCondition.BELOW, updated.condition)
+            assertEquals(false, updated.isEnabled)
+            assertEquals(1L, updated.createdAt)
+        }
+    }
+
+    @Test
     fun `markTriggered sets triggeredAt`() = runTest {
         val id = dao.insert(PriceAlertEntity(symbol = "AAPL", targetPrice = 210.0, condition = AlertCondition.ABOVE, isEnabled = true, createdAt = 1L))
         dao.markTriggered(id, triggeredAt = 99L)
