@@ -52,4 +52,5 @@ dependencies {
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.junit)
     testRuntimeOnly(libs.junit.vintage.engine)
+    testImplementation(libs.kotlin.test)
 }
