@@ -34,4 +34,9 @@ object DatabaseModule {
     @Singleton
     fun provideCandleCacheDao(database: AppDatabase): com.sypark.finnhub.core.database.dao.CandleCacheDao =
         database.candleCacheDao()
+
+    @Provides
+    @Singleton
+    fun providePriceAlertDao(database: AppDatabase): com.sypark.finnhub.core.database.dao.PriceAlertDao =
+        database.priceAlertDao()
 }
