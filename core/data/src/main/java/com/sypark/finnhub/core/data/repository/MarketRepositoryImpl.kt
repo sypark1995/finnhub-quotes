@@ -8,6 +8,7 @@ import com.sypark.finnhub.core.data.mapper.toDomain
 import com.sypark.finnhub.core.data.util.CacheTtl
 import com.sypark.finnhub.core.database.dao.CandleCacheDao
 import com.sypark.finnhub.core.database.dao.QuoteCacheDao
+import com.sypark.finnhub.core.datastore.UserPreferencesDataSource
 import com.sypark.finnhub.core.domain.model.Candle
 import com.sypark.finnhub.core.domain.model.ConnectionStatus
 import com.sypark.finnhub.core.domain.model.EarningsEvent
@@ -21,8 +22,10 @@ import com.sypark.finnhub.core.network.FinnhubApiService
 import com.sypark.finnhub.core.websocket.ConnectionState
 import com.sypark.finnhub.core.websocket.FinnhubWebSocketManager
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
@@ -35,6 +38,7 @@ class MarketRepositoryImpl @Inject constructor(
     private val webSocketManager: FinnhubWebSocketManager,
     private val quoteCacheDao: QuoteCacheDao,
     private val candleCacheDao: CandleCacheDao,
+    private val preferencesDataSource: UserPreferencesDataSource,
     private val dispatchers: AppDispatchers,
     private val nowProvider: () -> Long = { System.currentTimeMillis() },
 ) : MarketRepository {
@@ -66,9 +70,28 @@ class MarketRepositoryImpl @Inject constructor(
                 quoteCacheDao.upsert(updated.toCacheEntity())
             }
         }
+        val fallbackJob = launch(dispatchers.io) {
+            preferencesDataSource.refreshIntervalSeconds.collectLatest { intervalSeconds ->
+                webSocketManager.connectionState.collectLatest { connectionState ->
+                    if (connectionState != ConnectionState.Connected) {
+                        while (true) {
+                            symbols.forEach { symbol ->
+                                val dto = runCatching { apiService.getQuote(symbol) }.getOrNull() ?: return@forEach
+                                val quote = dto.toDomain(symbol)
+                                currentQuotes[symbol] = quote
+                                trySend(currentQuotes.toMap())
+                                quoteCacheDao.upsert(quote.toCacheEntity())
+                            }
+                            delay(intervalSeconds * 1000L)
+                        }
+                    }
+                }
+            }
+        }
         awaitClose {
             cacheJob.cancel()
             tradeJob.cancel()
+            fallbackJob.cancel()
         }
     }.flowOn(dispatchers.io)
 
