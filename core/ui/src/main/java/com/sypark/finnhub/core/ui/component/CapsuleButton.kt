@@ -11,6 +11,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
@@ -25,13 +26,15 @@ fun CapsuleButton(
     modifier: Modifier = Modifier,
     containerColor: Color = MaterialTheme.colorScheme.primary,
     contentColor: Color = MaterialTheme.colorScheme.onPrimary,
+    enabled: Boolean = true,
     icon: (@Composable () -> Unit)? = null,
 ) {
     Row(
         modifier = modifier
             .clip(ShapePill)
             .background(containerColor)
-            .clickable(onClick = onClick)
+            .alpha(if (enabled) 1f else 0.5f)
+            .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = Spacing.space5, vertical = Spacing.space3),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Spacing.space2),
