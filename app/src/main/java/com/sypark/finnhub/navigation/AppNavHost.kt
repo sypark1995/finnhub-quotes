@@ -50,14 +50,17 @@ fun AppNavHost(navController: NavHostController) {
             }
         }
         composable<Route.Alerts> {
-            AppScaffold(navController = navController, currentRoute = Route.Alerts) {
-                PlaceholderScreen(title = "가격 알림", modifier = Modifier.padding(it))
+            AppScaffold(navController = navController, currentRoute = Route.Alerts) { padding ->
+                com.sypark.finnhub.feature.alert.AlertListRoute(
+                    onNavigateToCreate = { navController.navigate(Route.AlertCreate()) },
+                    modifier = androidx.compose.ui.Modifier.padding(padding),
+                )
             }
         }
         composable<Route.AlertCreate> { entry ->
             val route = entry.toRoute<Route.AlertCreate>()
-            AppScaffold(navController = navController, currentRoute = route) {
-                PlaceholderScreen(title = "알림 생성", modifier = Modifier.padding(it))
+            AppScaffold(navController = navController, currentRoute = route) { _ ->
+                com.sypark.finnhub.feature.alert.AlertCreateRoute(onDismiss = { navController.popBackStack() })
             }
         }
         composable<Route.Settings> {
