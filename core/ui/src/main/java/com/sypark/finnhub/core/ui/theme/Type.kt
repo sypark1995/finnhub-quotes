@@ -1,6 +1,8 @@
 package com.sypark.finnhub.core.ui.theme
 
 import androidx.compose.material3.Typography
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
@@ -24,13 +26,12 @@ val PriceTypographyLarge = TextStyle(
     lineHeight = 40.sp,
     fontFeatureSettings = "tnum",
 )
-val PriceTypographyMedium = TextStyle(
-    fontFamily = JetBrainsMonoFontFamily,
-    fontWeight = FontWeight.SemiBold,
-    fontSize = 18.sp,
-    lineHeight = 24.sp,
-    fontFeatureSettings = "tnum",
-)
+val PriceTypographyMedium: TextStyle
+    @Composable get() {
+        val density = LocalDensity.current
+        val clampedSp = (18f * density.fontScale).coerceAtMost(24f).let { with(density) { it.sp } }
+        return TextStyle(fontFamily = JetBrainsMonoFontFamily, fontWeight = FontWeight.SemiBold, fontSize = clampedSp, lineHeight = 24.sp, fontFeatureSettings = "tnum")
+    }
 val PriceTypographySmall = TextStyle(
     fontFamily = JetBrainsMonoFontFamily,
     fontWeight = FontWeight.Medium,
