@@ -5,6 +5,8 @@ import com.sypark.finnhub.core.common.AppResult
 import com.sypark.finnhub.core.data.mapper.mapNetworkError
 import com.sypark.finnhub.core.data.mapper.toCacheEntity
 import com.sypark.finnhub.core.data.mapper.toDomain
+import com.sypark.finnhub.core.data.util.CacheTtl
+import com.sypark.finnhub.core.database.dao.CandleCacheDao
 import com.sypark.finnhub.core.database.dao.QuoteCacheDao
 import com.sypark.finnhub.core.domain.model.Candle
 import com.sypark.finnhub.core.domain.model.ConnectionStatus
@@ -32,7 +34,9 @@ class MarketRepositoryImpl @Inject constructor(
     private val apiService: FinnhubApiService,
     private val webSocketManager: FinnhubWebSocketManager,
     private val quoteCacheDao: QuoteCacheDao,
+    private val candleCacheDao: CandleCacheDao,
     private val dispatchers: AppDispatchers,
+    private val nowProvider: () -> Long = { System.currentTimeMillis() },
 ) : MarketRepository {
 
     override fun observeQuotes(symbols: Set<String>): Flow<Map<String, Quote>> = callbackFlow {
@@ -96,24 +100,66 @@ class MarketRepositoryImpl @Inject constructor(
         }
     }
 
-    // getCandles / getStockProfile / getStockMetrics / getPeers / getCompanyNews /
-    // getEarningsCalendar are implemented across Tasks 37–40 as modifications to this class.
-
     override suspend fun getCandles(symbol: String, resolution: String, from: Long, to: Long): AppResult<List<Candle>> =
-        throw NotImplementedError("getCandles() is implemented in Task 26")
+        withContext(dispatchers.io) {
+            val now = nowProvider()
+            val lastFetchedAt = candleCacheDao.getLatestFetchedAt(symbol, resolution)
+            if (CacheTtl.isFresh(lastFetchedAt, now, CacheTtl.CANDLE_TTL_MILLIS)) {
+                return@withContext AppResult.Success(candleCacheDao.getCandles(symbol, resolution).map { it.toDomain() })
+            }
+            try {
+                val isForex = symbol.contains(":") && symbol.contains("_")
+                val dto = if (isForex) {
+                    apiService.getForexCandles(symbol, resolution, from, to)
+                } else {
+                    apiService.getStockCandles(symbol, resolution, from, to)
+                }
+                val candles = dto.toDomain()
+                candleCacheDao.insertAll(candles.map { it.toCacheEntity(symbol, resolution, now) })
+                AppResult.Success(candles)
+            } catch (throwable: Throwable) {
+                val cached = candleCacheDao.getCandles(symbol, resolution).map { it.toDomain() }
+                if (cached.isNotEmpty()) AppResult.Success(cached) else AppResult.Error(mapNetworkError(throwable))
+            }
+        }
 
-    override suspend fun getStockProfile(symbol: String): AppResult<StockProfile> =
-        throw NotImplementedError("getStockProfile() is implemented in Task 27")
+    override suspend fun getStockProfile(symbol: String): AppResult<StockProfile> = withContext(dispatchers.io) {
+        try {
+            AppResult.Success(apiService.getStockProfile(symbol).toDomain(symbol))
+        } catch (throwable: Throwable) {
+            AppResult.Error(mapNetworkError(throwable))
+        }
+    }
 
-    override suspend fun getStockMetrics(symbol: String): AppResult<StockMetrics> =
-        throw NotImplementedError("getStockMetrics() is implemented in Task 27")
+    override suspend fun getStockMetrics(symbol: String): AppResult<StockMetrics> = withContext(dispatchers.io) {
+        try {
+            AppResult.Success(apiService.getStockMetrics(symbol).toDomain(symbol))
+        } catch (throwable: Throwable) {
+            AppResult.Error(mapNetworkError(throwable))
+        }
+    }
 
-    override suspend fun getPeers(symbol: String): AppResult<List<String>> =
-        throw NotImplementedError("getPeers() is implemented in Task 27")
+    override suspend fun getPeers(symbol: String): AppResult<List<String>> = withContext(dispatchers.io) {
+        try {
+            AppResult.Success(apiService.getPeers(symbol))
+        } catch (throwable: Throwable) {
+            AppResult.Error(mapNetworkError(throwable))
+        }
+    }
 
-    override suspend fun getCompanyNews(symbol: String, from: String, to: String): AppResult<List<News>> =
-        throw NotImplementedError("getCompanyNews() is implemented in Task 27")
+    override suspend fun getCompanyNews(symbol: String, from: String, to: String): AppResult<List<News>> = withContext(dispatchers.io) {
+        try {
+            AppResult.Success(apiService.getCompanyNews(symbol, from, to).map { it.toDomain() })
+        } catch (throwable: Throwable) {
+            AppResult.Error(mapNetworkError(throwable))
+        }
+    }
 
-    override suspend fun getEarningsCalendar(from: String, to: String, symbol: String?): AppResult<List<EarningsEvent>> =
-        throw NotImplementedError("getEarningsCalendar() is implemented in Task 27")
+    override suspend fun getEarningsCalendar(from: String, to: String, symbol: String?): AppResult<List<EarningsEvent>> = withContext(dispatchers.io) {
+        try {
+            AppResult.Success(apiService.getEarningsCalendar(from, to, symbol).earningsCalendar.map { it.toDomain() })
+        } catch (throwable: Throwable) {
+            AppResult.Error(mapNetworkError(throwable))
+        }
+    }
 }

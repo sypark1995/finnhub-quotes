@@ -40,7 +40,8 @@ class MarketRepositoryImplTest {
     private val apiService = mockk<FinnhubApiService>()
     private val webSocketManager = mockk<FinnhubWebSocketManager>(relaxUnitFun = true)
     private val quoteCacheDao = mockk<QuoteCacheDao>(relaxUnitFun = true)
-    private val repository = MarketRepositoryImpl(apiService, webSocketManager, quoteCacheDao, AppDispatchers())
+    private val candleCacheDao = mockk<com.sypark.finnhub.core.database.dao.CandleCacheDao>(relaxUnitFun = true)
+    private val repository = MarketRepositoryImpl(apiService, webSocketManager, quoteCacheDao, candleCacheDao, AppDispatchers()) { 10_000L }
 
     @Test
     fun `observeConnectionStatus maps every websocket ConnectionState to the domain ConnectionStatus`() = runTest {
@@ -238,5 +239,77 @@ class MarketRepositoryImplTest {
     fun `search returns an error AppResult when the call fails`() = runTest {
         coEvery { apiService.search("AAPL") } throws IOException("offline")
         assertTrue(repository.search("AAPL") is AppResult.Error)
+    }
+
+    @Test
+    fun `getCandles fetches from REST and caches when the cache is stale`() = runTest {
+        coEvery { candleCacheDao.getLatestFetchedAt("AAPL", "D") } returns null
+        coEvery { apiService.getStockCandles("AAPL", "D", 1, 2) } returns com.sypark.finnhub.core.network.dto.CandleResponseDto(
+            c = listOf(198.5), h = listOf(199.1), l = listOf(196.8), o = listOf(197.2), s = "ok", t = listOf(1L), v = listOf(1000L),
+        )
+
+        val result = repository.getCandles("AAPL", "D", 1, 2)
+
+        assertTrue(result is AppResult.Success)
+        assertEquals(1, (result as AppResult.Success).data.size)
+    }
+
+    @Test
+    fun `getCandles reads from the cache without a REST call when fresh`() = runTest {
+        coEvery { candleCacheDao.getLatestFetchedAt("AAPL", "D") } returns 9_800L
+        coEvery { candleCacheDao.getCandles("AAPL", "D") } returns listOf(
+            com.sypark.finnhub.core.database.entity.CandleCacheEntity(symbol = "AAPL", resolution = "D", timestamp = 1L, open = 197.2, high = 199.1, low = 196.8, close = 198.5, volume = 1000L, fetchedAt = 9_800L),
+        )
+
+        val result = repository.getCandles("AAPL", "D", 1, 2)
+
+        assertTrue(result is AppResult.Success)
+        io.mockk.coVerify(exactly = 0) { apiService.getStockCandles(any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `getStockProfile maps the DTO to a domain StockProfile`() = runTest {
+        coEvery { apiService.getStockProfile("AAPL") } returns com.sypark.finnhub.core.network.dto.StockProfileDto(name = "Apple Inc")
+        val result = repository.getStockProfile("AAPL")
+        assertTrue(result is AppResult.Success)
+        assertEquals("Apple Inc", (result as AppResult.Success).data.name)
+    }
+
+    @Test
+    fun `getStockMetrics maps the nested metric DTO to a domain StockMetrics`() = runTest {
+        coEvery { apiService.getStockMetrics("AAPL", "all") } returns com.sypark.finnhub.core.network.dto.StockMetricResponseDto(
+            com.sypark.finnhub.core.network.dto.StockMetricDto(peRatio = 32.5),
+        )
+        val result = repository.getStockMetrics("AAPL")
+        assertTrue(result is AppResult.Success)
+        assertEquals(32.5, (result as AppResult.Success).data.peRatio)
+    }
+
+    @Test
+    fun `getPeers returns the raw symbol list wrapped in AppResult`() = runTest {
+        coEvery { apiService.getPeers("AAPL") } returns listOf("MSFT", "GOOGL")
+        val result = repository.getPeers("AAPL")
+        assertTrue(result is AppResult.Success)
+        assertEquals(listOf("MSFT", "GOOGL"), (result as AppResult.Success).data)
+    }
+
+    @Test
+    fun `getCompanyNews maps every DTO to a domain News`() = runTest {
+        coEvery { apiService.getCompanyNews("AAPL", "2026-06-01", "2026-07-01") } returns listOf(
+            com.sypark.finnhub.core.network.dto.CompanyNewsDto(1, "Headline", "Reuters", "https://x", 1L, "...", "https://x/i.png"),
+        )
+        val result = repository.getCompanyNews("AAPL", "2026-06-01", "2026-07-01")
+        assertTrue(result is AppResult.Success)
+        assertEquals(1, (result as AppResult.Success).data.size)
+    }
+
+    @Test
+    fun `getEarningsCalendar maps every DTO to a domain EarningsEvent`() = runTest {
+        coEvery { apiService.getEarningsCalendar("2026-07-01", "2026-07-31", "AAPL") } returns com.sypark.finnhub.core.network.dto.EarningsCalendarResponseDto(
+            listOf(com.sypark.finnhub.core.network.dto.EarningsEventDto("2026-07-15", 1.5, null, null, null, "AAPL")),
+        )
+        val result = repository.getEarningsCalendar("2026-07-01", "2026-07-31", "AAPL")
+        assertTrue(result is AppResult.Success)
+        assertEquals("AAPL", (result as AppResult.Success).data.single().symbol)
     }
 }
