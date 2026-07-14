@@ -107,12 +107,15 @@ class MarketRepositoryImpl @Inject constructor(
     override suspend fun disconnect() = webSocketManager.disconnect()
 
     override suspend fun getQuote(symbol: String): AppResult<Quote> = withContext(dispatchers.io) {
+        val cached = quoteCacheDao.observe(symbol).first()
+        if (CacheTtl.isFresh(cached?.updatedAt, nowProvider(), CacheTtl.QUOTE_TTL_MILLIS)) {
+            return@withContext AppResult.Success(cached!!.toDomain())
+        }
         try {
             val quote = apiService.getQuote(symbol).toDomain(symbol)
             quoteCacheDao.upsert(quote.toCacheEntity())
             AppResult.Success(quote)
         } catch (throwable: Throwable) {
-            val cached = quoteCacheDao.observe(symbol).first()
             if (cached != null) AppResult.Success(cached.toDomain()) else AppResult.Error(mapNetworkError(throwable))
         }
     }
