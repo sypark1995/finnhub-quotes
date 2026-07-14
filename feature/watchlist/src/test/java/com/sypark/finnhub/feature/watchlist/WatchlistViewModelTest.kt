@@ -1,12 +1,14 @@
 package com.sypark.finnhub.feature.watchlist
 
 import app.cash.turbine.test
+import com.sypark.finnhub.core.common.AppCoroutineScope
 import com.sypark.finnhub.core.common.AppResult
 import com.sypark.finnhub.core.common.AssetType
 import com.sypark.finnhub.core.domain.model.ConnectionStatus
 import com.sypark.finnhub.core.domain.model.Quote
 import com.sypark.finnhub.core.domain.model.QuoteSource
 import com.sypark.finnhub.core.domain.model.WatchlistItem
+import com.sypark.finnhub.core.domain.usecase.watchlist.DisconnectMarketUseCase
 import com.sypark.finnhub.core.domain.usecase.watchlist.ObserveConnectionStatusUseCase
 import com.sypark.finnhub.core.domain.usecase.watchlist.ObserveQuotesUseCase
 import com.sypark.finnhub.core.domain.usecase.watchlist.ObserveWatchlistUseCase
@@ -39,6 +41,8 @@ class WatchlistViewModelTest {
     private val removeFromWatchlistUseCase = mockk<RemoveFromWatchlistUseCase>()
     private val reorderWatchlistUseCase = mockk<ReorderWatchlistUseCase>()
     private val refreshQuotesUseCase = mockk<RefreshQuotesUseCase>()
+    private val disconnectMarketUseCase = mockk<DisconnectMarketUseCase>()
+    private val appCoroutineScope = mockk<AppCoroutineScope>(relaxed = true)
 
     @BeforeEach
     fun setUp() {
@@ -58,6 +62,7 @@ class WatchlistViewModelTest {
     private fun buildViewModel() = WatchlistViewModel(
         observeWatchlistUseCase, observeQuotesUseCase, observeConnectionStatusUseCase,
         removeFromWatchlistUseCase, reorderWatchlistUseCase, refreshQuotesUseCase,
+        disconnectMarketUseCase, appCoroutineScope,
     )
 
     @Test
