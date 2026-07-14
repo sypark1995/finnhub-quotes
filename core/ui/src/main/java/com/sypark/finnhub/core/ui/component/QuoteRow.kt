@@ -36,12 +36,12 @@ import com.sypark.finnhub.core.common.AssetType
 import com.sypark.finnhub.core.ui.model.ChangeDirection
 import com.sypark.finnhub.core.ui.model.UiQuoteSource
 import com.sypark.finnhub.core.ui.theme.AppTheme
-import com.sypark.finnhub.core.ui.util.priceContentDescription
 import com.sypark.finnhub.core.ui.theme.FinnhubQuotesTheme
 import com.sypark.finnhub.core.ui.theme.PriceTypographyMedium
 import com.sypark.finnhub.core.ui.theme.ShapeCard
 import com.sypark.finnhub.core.ui.theme.ShapeSmall
 import com.sypark.finnhub.core.ui.theme.Spacing
+import com.sypark.finnhub.core.ui.util.priceContentDescription
 import kotlinx.coroutines.delay
 
 private fun assetBadgeLabel(assetType: AssetType): String = when (assetType) {
