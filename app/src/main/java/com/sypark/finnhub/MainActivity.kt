@@ -8,10 +8,9 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -25,11 +24,11 @@ import dagger.hilt.android.AndroidEntryPoint
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
-    private var pendingDeepLinkSymbol: String? = null
+    private var deepLinkSymbolState: MutableState<String?> = mutableStateOf(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        pendingDeepLinkSymbol = intent?.getStringExtra("symbol")
+        deepLinkSymbolState.value = intent?.getStringExtra("symbol")
 
         setContent {
             val rootThemeViewModel: RootThemeViewModel = hiltViewModel()
@@ -42,11 +41,11 @@ class MainActivity : ComponentActivity() {
             FinnhubQuotesTheme(darkTheme = darkTheme) {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     val navController = rememberNavController()
-                    var deepLinkSymbol by remember { mutableStateOf(pendingDeepLinkSymbol) }
+                    val deepLinkSymbol by deepLinkSymbolState
                     LaunchedEffect(deepLinkSymbol) {
                         deepLinkSymbol?.let { symbol ->
                             navController.navigate(Route.Detail(symbol))
-                            deepLinkSymbol = null
+                            deepLinkSymbolState.value = null
                         }
                     }
                     AppNavHost(navController = navController)
@@ -57,6 +56,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        pendingDeepLinkSymbol = intent.getStringExtra("symbol")
+        setIntent(intent)
+        deepLinkSymbolState.value = intent.getStringExtra("symbol")
     }
 }
