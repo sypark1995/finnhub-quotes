@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStoreFile
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
@@ -20,6 +21,7 @@ class UserPreferencesDataSource @Inject constructor(
 
     private object Keys {
         val REFRESH_INTERVAL_SECONDS = intPreferencesKey("refresh_interval_seconds")
+        val THEME_MODE = stringPreferencesKey("theme_mode")
     }
 
     private val dataStore: DataStore<Preferences> = PreferenceDataStoreFactory.create(
@@ -34,6 +36,14 @@ class UserPreferencesDataSource @Inject constructor(
         dataStore.edit { prefs ->
             prefs[Keys.REFRESH_INTERVAL_SECONDS] = seconds
         }
+    }
+
+    val themeMode: Flow<StoredThemeMode> = dataStore.data.map { prefs ->
+        prefs[Keys.THEME_MODE]?.let { runCatching { StoredThemeMode.valueOf(it) }.getOrNull() } ?: StoredThemeMode.SYSTEM
+    }
+
+    suspend fun setThemeMode(mode: StoredThemeMode) {
+        dataStore.edit { prefs -> prefs[Keys.THEME_MODE] = mode.name }
     }
 
     companion object {
