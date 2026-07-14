@@ -38,6 +38,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.sypark.finnhub.core.common.UiError
 import com.sypark.finnhub.core.domain.model.ConnectionStatus
 import com.sypark.finnhub.core.ui.component.AppSnackbarHost
 import com.sypark.finnhub.core.ui.component.CapsuleButton
@@ -55,6 +56,13 @@ private fun ConnectionStatus.toBannerState(): ConnectionBannerState = when (this
     ConnectionStatus.Connected -> ConnectionBannerState.LIVE
     ConnectionStatus.Connecting, ConnectionStatus.Reconnecting -> ConnectionBannerState.RECONNECTING
     ConnectionStatus.Disconnected -> ConnectionBannerState.DELAYED
+}
+
+private fun errorMessage(error: UiError): String = when (error) {
+    UiError.RateLimited -> "요청이 많습니다. 잠시 후 다시 시도해 주세요"
+    UiError.Network -> "네트워크 연결을 확인해 주세요"
+    is UiError.Api -> "일시적인 오류가 발생했습니다 (${error.code})"
+    is UiError.Unknown -> "알 수 없는 오류가 발생했습니다"
 }
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
@@ -133,7 +141,7 @@ fun WatchlistScreen(
                     verticalArrangement = Arrangement.spacedBy(Spacing.space2),
                 ) { items(5) { QuoteRowSkeleton() } }
                 state.error != null && state.items.isEmpty() -> ErrorBanner(
-                    message = "네트워크 연결을 확인해 주세요",
+                    message = errorMessage(state.error),
                     onRetry = { onIntent(WatchlistIntent.Load) },
                 )
                 state.items.isEmpty() -> EmptyState(
@@ -144,7 +152,7 @@ fun WatchlistScreen(
                 )
                 else -> {
                     if (state.error != null) {
-                        ErrorBanner(message = "네트워크 연결을 확인해 주세요", onRetry = { onIntent(WatchlistIntent.Load) })
+                        ErrorBanner(message = errorMessage(state.error), onRetry = { onIntent(WatchlistIntent.Load) })
                     }
                     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
                     var draggingIndex by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<Int?>(null) }
