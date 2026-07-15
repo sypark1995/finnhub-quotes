@@ -97,8 +97,8 @@ class WatchlistViewModelTest {
     fun `OpenDetail emits a NavigateToDetail effect`() = runTest(dispatcher) {
         val viewModel = buildViewModel()
         viewModel.effect.test {
-            viewModel.onIntent(WatchlistIntent.OpenDetail("AAPL"))
-            assertEquals(WatchlistEffect.NavigateToDetail("AAPL"), awaitItem())
+            viewModel.onIntent(WatchlistIntent.OpenDetail("AAPL", AssetType.STOCK))
+            assertEquals(WatchlistEffect.NavigateToDetail("AAPL", AssetType.STOCK), awaitItem())
         }
     }
 }

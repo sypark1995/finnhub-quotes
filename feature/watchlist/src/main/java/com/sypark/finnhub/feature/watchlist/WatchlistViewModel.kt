@@ -57,7 +57,7 @@ class WatchlistViewModel @Inject constructor(
             WatchlistIntent.Refresh -> refresh()
             is WatchlistIntent.Remove -> remove(intent.symbol)
             is WatchlistIntent.Reorder -> reorder(intent.fromIndex, intent.toIndex)
-            is WatchlistIntent.OpenDetail -> _effect.tryEmit(WatchlistEffect.NavigateToDetail(intent.symbol))
+            is WatchlistIntent.OpenDetail -> _effect.tryEmit(WatchlistEffect.NavigateToDetail(intent.symbol, intent.assetType))
             WatchlistIntent.OpenSearch -> _effect.tryEmit(WatchlistEffect.NavigateToSearch)
         }
     }

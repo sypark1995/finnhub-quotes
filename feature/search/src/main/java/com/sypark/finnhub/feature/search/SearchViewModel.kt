@@ -89,7 +89,7 @@ class SearchViewModel @Inject constructor(
                 )
             }
             is SearchIntent.RemoveFromWatchlist -> viewModelScope.launch { removeFromWatchlistUseCase(intent.symbol) }
-            is SearchIntent.OpenDetail -> _effect.tryEmit(SearchEffect.NavigateToDetail(intent.symbol))
+            is SearchIntent.OpenDetail -> _effect.tryEmit(SearchEffect.NavigateToDetail(intent.symbol, intent.assetType))
         }
     }
 

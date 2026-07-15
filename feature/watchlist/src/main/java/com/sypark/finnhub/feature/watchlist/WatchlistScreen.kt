@@ -102,7 +102,7 @@ private fun CustomPullRefreshIndicator(
 
 @Composable
 fun WatchlistRoute(
-    onNavigateToDetail: (String) -> Unit,
+    onNavigateToDetail: (String, com.sypark.finnhub.core.common.AssetType) -> Unit,
     onNavigateToSearch: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: WatchlistViewModel = hiltViewModel(),
@@ -114,7 +114,7 @@ fun WatchlistRoute(
     LaunchedEffect(viewModel) {
         viewModel.effect.collectLatest { effect ->
             when (effect) {
-                is WatchlistEffect.NavigateToDetail -> onNavigateToDetail(effect.symbol)
+                is WatchlistEffect.NavigateToDetail -> onNavigateToDetail(effect.symbol, effect.assetType)
                 WatchlistEffect.NavigateToSearch -> onNavigateToSearch()
                 is WatchlistEffect.ShowSnackbar -> snackbarHostState.showSnackbar(effect.message)
             }
@@ -220,7 +220,7 @@ fun WatchlistScreen(
                                                 changePercent = quote?.changePercent ?: "—",
                                                 changeDirection = quote?.changeDirection ?: com.sypark.finnhub.core.ui.model.ChangeDirection.FLAT,
                                                 quoteSource = quote?.quoteSource ?: com.sypark.finnhub.core.ui.model.UiQuoteSource.CACHE,
-                                                onClick = { onIntent(WatchlistIntent.OpenDetail(item.symbol)) },
+                                                onClick = { onIntent(WatchlistIntent.OpenDetail(item.symbol, item.assetType)) },
                                             )
                                             androidx.compose.material3.Icon(
                                                 imageVector = androidx.compose.material.icons.Icons.Filled.DragHandle,

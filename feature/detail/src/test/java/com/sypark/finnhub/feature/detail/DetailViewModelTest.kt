@@ -66,8 +66,8 @@ class DetailViewModelTest {
     @AfterEach
     fun tearDown() = Dispatchers.resetMain()
 
-    private fun buildViewModel() = DetailViewModel(
-        SavedStateHandle(mapOf("symbol" to "AAPL")),
+    private fun buildViewModel(savedState: Map<String, String> = mapOf("symbol" to "AAPL")) = DetailViewModel(
+        SavedStateHandle(savedState),
         getQuoteUseCase, observeQuotesUseCase, getStockProfileUseCase, getStockMetricsUseCase,
         getPeersUseCase, getCandlesUseCase, getCompanyNewsUseCase, toggleWatchlistUseCase, isInWatchlistUseCase,
     )
@@ -111,6 +111,33 @@ class DetailViewModelTest {
         dispatcher.scheduler.advanceUntilIdle()
 
         assertEquals("$205.00", viewModel.state.value.quote?.price)
+    }
+
+    @Test
+    fun `Load resolves assetType from the assetTypeName nav arg instead of the symbol heuristic`() = runTest(dispatcher) {
+        // "EURUSD" has neither ":" nor "_", so assetTypeFromSymbol would default it to STOCK.
+        // Passing assetTypeName = FOREX via SavedStateHandle must win over that heuristic guess —
+        // observable via formatPrice: STOCK/CRYPTO render "$#,##0.00", FOREX renders plain "0.0000".
+        coEvery { getQuoteUseCase("EURUSD") } returns AppResult.Success(
+            Quote("EURUSD", 1.2345, 0.001, 0.08, 1.235, 1.23, 1.232, 1.231, 1L, QuoteSource.REST),
+        )
+        coEvery { getStockProfileUseCase("EURUSD") } returns AppResult.Success(
+            StockProfile("EURUSD", "Euro / US Dollar", "", "", "", 0.0, "", "USD"),
+        )
+        coEvery { getStockMetricsUseCase("EURUSD") } returns AppResult.Success(
+            StockMetrics("EURUSD", null, null, null, null, null),
+        )
+        coEvery { getPeersUseCase("EURUSD") } returns AppResult.Success(emptyList())
+        coEvery { getCandlesUseCase("EURUSD", "D", any(), any()) } returns AppResult.Success(emptyList())
+        coEvery { getCompanyNewsUseCase("EURUSD", any(), any()) } returns AppResult.Success(emptyList())
+        coEvery { isInWatchlistUseCase("EURUSD") } returns false
+        every { observeQuotesUseCase(setOf("EURUSD")) } returns flowOf(emptyMap())
+
+        val viewModel = buildViewModel(mapOf("symbol" to "EURUSD", "assetTypeName" to "FOREX"))
+        viewModel.onIntent(DetailIntent.Load)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("1.2345", viewModel.state.value.quote?.price)
     }
 
     @Test

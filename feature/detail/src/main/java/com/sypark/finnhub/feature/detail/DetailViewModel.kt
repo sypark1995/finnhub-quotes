@@ -48,7 +48,9 @@ class DetailViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val symbol: String = savedStateHandle.get<String>("symbol").orEmpty()
-    private val assetType: AssetType = assetTypeFromSymbol(symbol)
+    private val assetType: AssetType = savedStateHandle.get<String>("assetTypeName")
+        ?.let { runCatching { AssetType.valueOf(it) }.getOrNull() }
+        ?: assetTypeFromSymbol(symbol)
 
     private val _state = MutableStateFlow(DetailState(symbol = symbol))
     val state: StateFlow<DetailState> = _state.asStateFlow()

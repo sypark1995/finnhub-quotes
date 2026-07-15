@@ -24,7 +24,7 @@ fun AppNavHost(navController: NavHostController) {
         composable<Route.Watchlist> {
             AppScaffold(navController = navController, currentRoute = Route.Watchlist) { padding ->
                 com.sypark.finnhub.feature.watchlist.WatchlistRoute(
-                    onNavigateToDetail = { symbol -> navController.navigate(Route.Detail(symbol)) },
+                    onNavigateToDetail = { symbol, assetType -> navController.navigate(Route.Detail(symbol, assetType.name)) },
                     onNavigateToSearch = { navController.navigate(Route.Search) },
                     modifier = androidx.compose.ui.Modifier.padding(padding),
                 )
@@ -33,7 +33,7 @@ fun AppNavHost(navController: NavHostController) {
         composable<Route.Search> {
             AppScaffold(navController = navController, currentRoute = Route.Search) { padding ->
                 com.sypark.finnhub.feature.search.SearchRoute(
-                    onNavigateToDetail = { symbol -> navController.navigate(Route.Detail(symbol)) },
+                    onNavigateToDetail = { symbol, assetType -> navController.navigate(Route.Detail(symbol, assetType.name)) },
                     modifier = androidx.compose.ui.Modifier.padding(padding),
                 )
             }
