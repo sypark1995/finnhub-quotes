@@ -18,7 +18,14 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideAppDatabase(@ApplicationContext context: Context): AppDatabase =
-        Room.databaseBuilder(context, AppDatabase::class.java, DATABASE_NAME).build()
+        Room.databaseBuilder(context, AppDatabase::class.java, DATABASE_NAME)
+            // Pre-release: schema has changed 3 times during development (v1->v4) with no shipped
+            // release and no production users yet, so a destructive fallback (drop + recreate) is
+            // the pragmatic choice over hand-written migrations for a schema still in flux.
+            // MUST be replaced with real Migration objects before this app's first real release,
+            // since WatchlistEntity/PriceAlertEntity hold real user data at that point.
+            .fallbackToDestructiveMigration()
+            .build()
 
     @Provides
     @Singleton

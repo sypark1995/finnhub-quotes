@@ -37,6 +37,7 @@ import javax.inject.Inject
 class DetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val getQuoteUseCase: GetQuoteUseCase,
+    private val observeQuotesUseCase: com.sypark.finnhub.core.domain.usecase.watchlist.ObserveQuotesUseCase,
     private val getStockProfileUseCase: GetStockProfileUseCase,
     private val getStockMetricsUseCase: GetStockMetricsUseCase,
     private val getPeersUseCase: GetPeersUseCase,
@@ -47,6 +48,7 @@ class DetailViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val symbol: String = savedStateHandle.get<String>("symbol").orEmpty()
+    private val assetType: AssetType = assetTypeFromSymbol(symbol)
 
     private val _state = MutableStateFlow(DetailState(symbol = symbol))
     val state: StateFlow<DetailState> = _state.asStateFlow()
@@ -56,7 +58,7 @@ class DetailViewModel @Inject constructor(
 
     fun onIntent(intent: DetailIntent) {
         when (intent) {
-            DetailIntent.Load -> load()
+            DetailIntent.Load -> { load(); observeLiveQuote() }
             is DetailIntent.SelectTab -> _state.value = _state.value.copy(selectedTab = intent.tab)
             is DetailIntent.ChangeResolution -> changeResolution(intent.resolution)
             DetailIntent.ToggleWatchlist -> toggleWatchlist()
@@ -82,26 +84,10 @@ class DetailViewModel @Inject constructor(
             awaitAll(quoteDeferred, profileDeferred, metricsDeferred, peersDeferred, candlesDeferred, newsDeferred, isInWatchlistDeferred)
 
             val quoteResult = quoteDeferred.await()
-            val assetType = AssetType.STOCK // Detail is entered from Watchlist/Search, both of which already resolved AssetType; a bare symbol string alone can't recover it, so price formatting below defaults to STOCK's $ format, and Task 51 threads the real AssetType through the nav arg as a follow-up if forex detail screens need FX-formatted headers.
 
             _state.value = _state.value.copy(
                 isLoading = false,
-                quote = (quoteResult as? AppResult.Success)?.data?.let { quote ->
-                    QuoteUi(
-                        price = formatPrice(quote.price, assetType),
-                        change = formatPrice(quote.change, assetType),
-                        changePercent = formatPercent(quote.changePercent),
-                        changeDirection = changeDirectionOf(quote.changePercent),
-                        high = formatPrice(quote.high, assetType),
-                        low = formatPrice(quote.low, assetType),
-                        open = formatPrice(quote.open, assetType),
-                        quoteSource = when (quote.source) {
-                            com.sypark.finnhub.core.domain.model.QuoteSource.WEBSOCKET -> UiQuoteSource.WEBSOCKET
-                            com.sypark.finnhub.core.domain.model.QuoteSource.REST -> UiQuoteSource.REST
-                            com.sypark.finnhub.core.domain.model.QuoteSource.CACHE -> UiQuoteSource.CACHE
-                        },
-                    )
-                },
+                quote = (quoteResult as? AppResult.Success)?.data?.toQuoteUi(assetType),
                 profile = (profileDeferred.await() as? AppResult.Success)?.data?.let {
                     StockProfileUi(it.name, it.exchange, it.industry, it.logoUrl, "$${formatLargeNumber(it.marketCapitalization)}", it.webUrl)
                 },
@@ -139,7 +125,7 @@ class DetailViewModel @Inject constructor(
             val item = WatchlistItem(
                 symbol = symbol,
                 displayName = profile?.name ?: symbol,
-                assetType = AssetType.STOCK,
+                assetType = assetType,
                 sortOrder = 0,
             )
             when (toggleWatchlistUseCase(item)) {
@@ -149,6 +135,37 @@ class DetailViewModel @Inject constructor(
         }
     }
 
+    private fun observeLiveQuote() {
+        viewModelScope.launch {
+            observeQuotesUseCase(setOf(symbol)).collect { quotesBySymbol ->
+                val quote = quotesBySymbol[symbol] ?: return@collect
+                _state.value = _state.value.copy(quote = quote.toQuoteUi(assetType))
+            }
+        }
+    }
+
     private fun isoDate(epochMillis: Long): String =
         java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date(epochMillis))
+
+    private fun com.sypark.finnhub.core.domain.model.Quote.toQuoteUi(assetType: AssetType) = QuoteUi(
+        price = formatPrice(price, assetType),
+        change = formatPrice(change, assetType),
+        changePercent = formatPercent(changePercent),
+        changeDirection = changeDirectionOf(changePercent),
+        high = formatPrice(high, assetType),
+        low = formatPrice(low, assetType),
+        open = formatPrice(open, assetType),
+        quoteSource = when (source) {
+            com.sypark.finnhub.core.domain.model.QuoteSource.WEBSOCKET -> UiQuoteSource.WEBSOCKET
+            com.sypark.finnhub.core.domain.model.QuoteSource.REST -> UiQuoteSource.REST
+            com.sypark.finnhub.core.domain.model.QuoteSource.CACHE -> UiQuoteSource.CACHE
+        },
+    )
 }
+
+private fun assetTypeFromSymbol(symbol: String): AssetType =
+    if (symbol.contains(":") && symbol.contains("_")) {
+        AssetType.FOREX
+    } else {
+        AssetType.STOCK
+    }
