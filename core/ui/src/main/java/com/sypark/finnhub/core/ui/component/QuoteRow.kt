@@ -41,6 +41,7 @@ import com.sypark.finnhub.core.ui.theme.PriceTypographyMedium
 import com.sypark.finnhub.core.ui.theme.ShapeCard
 import com.sypark.finnhub.core.ui.theme.ShapeSmall
 import com.sypark.finnhub.core.ui.theme.Spacing
+import com.sypark.finnhub.core.ui.util.ellipsizeMiddle
 import com.sypark.finnhub.core.ui.util.priceContentDescription
 import kotlinx.coroutines.delay
 
@@ -118,7 +119,7 @@ fun QuoteRow(
                 .padding(start = Spacing.space3),
         ) {
             Text(
-                text = symbol,
+                text = ellipsizeMiddle(symbol, maxLength = 12),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onBackground,
                 maxLines = 1,
@@ -132,12 +133,21 @@ fun QuoteRow(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        Column(horizontalAlignment = Alignment.End) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.space1)) {
+        val density = androidx.compose.ui.platform.LocalDensity.current
+        if (density.fontScale >= 1.3f) {
+            Column(horizontalAlignment = Alignment.End) {
                 Text(text = price, style = PriceTypographyMedium, color = MaterialTheme.colorScheme.onBackground)
                 QuoteSourceIndicator(source = quoteSource)
+                Text(text = changePercent, style = MaterialTheme.typography.labelLarge, color = changeColor)
             }
-            Text(text = changePercent, style = MaterialTheme.typography.labelLarge, color = changeColor)
+        } else {
+            Column(horizontalAlignment = Alignment.End) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.space1)) {
+                    Text(text = price, style = PriceTypographyMedium, color = MaterialTheme.colorScheme.onBackground)
+                    QuoteSourceIndicator(source = quoteSource)
+                }
+                Text(text = changePercent, style = MaterialTheme.typography.labelLarge, color = changeColor)
+            }
         }
     }
 }
