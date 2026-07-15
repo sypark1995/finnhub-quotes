@@ -15,7 +15,7 @@ import com.sypark.finnhub.core.database.entity.WatchlistEntity
 @Database(
     entities = [WatchlistEntity::class, QuoteCacheEntity::class, CandleCacheEntity::class, PriceAlertEntity::class],
     version = 4,
-    exportSchema = false
+    exportSchema = true
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
