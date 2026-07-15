@@ -1,5 +1,6 @@
 package com.sypark.finnhub.feature.alert
 
+import android.Manifest
 import android.app.NotificationManager
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
@@ -18,6 +19,13 @@ class NotificationHelperTest {
 
     private val context = ApplicationProvider.getApplicationContext<Context>()
     private val helper = NotificationHelper(context)
+
+    init {
+        // POST_NOTIFICATIONS is a runtime permission on API 33+; Robolectric does not
+        // auto-grant it, so simulate the user having granted it (as real usage requires
+        // before NotificationHelper will post anything on API 33+).
+        shadowOf(context as android.app.Application).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
+    }
 
     @Test
     fun `showAlertTriggeredNotification creates the price_alerts HIGH-importance channel`() {
