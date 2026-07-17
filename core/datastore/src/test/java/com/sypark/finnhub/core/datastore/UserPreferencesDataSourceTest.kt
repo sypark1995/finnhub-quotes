@@ -38,4 +38,19 @@ class UserPreferencesDataSourceTest {
             assertEquals(60, awaitItem())
         }
     }
+
+    @Test
+    fun `themeMode defaults to SYSTEM when unset`() = runTest {
+        dataSource.themeMode.test {
+            assertEquals(StoredThemeMode.SYSTEM, awaitItem())
+        }
+    }
+
+    @Test
+    fun `setThemeMode updates the emitted value`() = runTest {
+        dataSource.setThemeMode(StoredThemeMode.DARK)
+        dataSource.themeMode.test {
+            assertEquals(StoredThemeMode.DARK, awaitItem())
+        }
+    }
 }
