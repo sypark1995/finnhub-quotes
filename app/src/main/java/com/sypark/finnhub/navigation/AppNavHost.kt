@@ -64,8 +64,8 @@ fun AppNavHost(navController: NavHostController) {
             }
         }
         composable<Route.Settings> {
-            AppScaffold(navController = navController, currentRoute = Route.Settings) {
-                PlaceholderScreen(title = "설정", modifier = Modifier.padding(it))
+            AppScaffold(navController = navController, currentRoute = Route.Settings) { padding ->
+                com.sypark.finnhub.settings.SettingsRoute(modifier = androidx.compose.ui.Modifier.padding(padding))
             }
         }
     }
