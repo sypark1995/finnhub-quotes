@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 val AppTypography = Typography(
@@ -29,7 +30,7 @@ val PriceTypographyLarge = TextStyle(
 val PriceTypographyMedium: TextStyle
     @Composable get() {
         val density = LocalDensity.current
-        val clampedSp = (18f * density.fontScale).coerceAtMost(24f).let { with(density) { it.sp } }
+        val clampedSp = (18f * density.fontScale).coerceAtMost(24f).dp.let { with(density) { it.toSp() } }
         return TextStyle(fontFamily = JetBrainsMonoFontFamily, fontWeight = FontWeight.SemiBold, fontSize = clampedSp, lineHeight = 24.sp, fontFeatureSettings = "tnum")
     }
 val PriceTypographySmall = TextStyle(
