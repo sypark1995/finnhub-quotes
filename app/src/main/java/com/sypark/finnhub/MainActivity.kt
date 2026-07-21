@@ -1,38 +1,62 @@
 package com.sypark.finnhub
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.rememberNavController
+import com.sypark.finnhub.core.domain.model.ThemeMode
 import com.sypark.finnhub.core.ui.theme.FinnhubQuotesTheme
 import com.sypark.finnhub.navigation.AppNavHost
+import com.sypark.finnhub.navigation.Route
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    private var pendingDeepLinkSymbol: String? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        pendingDeepLinkSymbol = intent?.getStringExtra("symbol")
+
         setContent {
-            val rootThemeViewModel: RootThemeViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+            val rootThemeViewModel: RootThemeViewModel = hiltViewModel()
             val themeMode by rootThemeViewModel.themeMode.collectAsStateWithLifecycle()
             val darkTheme = when (themeMode) {
-                com.sypark.finnhub.core.domain.model.ThemeMode.SYSTEM -> isSystemInDarkTheme()
-                com.sypark.finnhub.core.domain.model.ThemeMode.DARK -> true
-                com.sypark.finnhub.core.domain.model.ThemeMode.LIGHT -> false
+                ThemeMode.SYSTEM -> isSystemInDarkTheme()
+                ThemeMode.DARK -> true
+                ThemeMode.LIGHT -> false
             }
             FinnhubQuotesTheme(darkTheme = darkTheme) {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     val navController = rememberNavController()
+                    var deepLinkSymbol by remember { mutableStateOf(pendingDeepLinkSymbol) }
+                    LaunchedEffect(deepLinkSymbol) {
+                        deepLinkSymbol?.let { symbol ->
+                            navController.navigate(Route.Detail(symbol))
+                            deepLinkSymbol = null
+                        }
+                    }
                     AppNavHost(navController = navController)
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        pendingDeepLinkSymbol = intent.getStringExtra("symbol")
     }
 }

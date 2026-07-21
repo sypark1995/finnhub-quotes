@@ -19,12 +19,21 @@ class NotificationHelper @Inject constructor(
             AlertCondition.ABOVE -> "이상"
             AlertCondition.BELOW -> "이하"
         }
+        val intent = android.content.Intent(context, Class.forName("com.sypark.finnhub.MainActivity")).apply {
+            putExtra("symbol", symbol)
+            flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val pendingIntent = android.app.PendingIntent.getActivity(
+            context, alertId.toInt(), intent,
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE,
+        )
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle("가격 알림")
             .setContentText("${symbol}이(가) ${targetPrice} ${conditionWord} 도달")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
             .build()
         NotificationManagerCompat.from(context).notify(alertId.toInt(), notification)
     }
