@@ -27,6 +27,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -34,6 +36,7 @@ import com.sypark.finnhub.core.common.AssetType
 import com.sypark.finnhub.core.ui.model.ChangeDirection
 import com.sypark.finnhub.core.ui.model.UiQuoteSource
 import com.sypark.finnhub.core.ui.theme.AppTheme
+import com.sypark.finnhub.core.ui.util.priceContentDescription
 import com.sypark.finnhub.core.ui.theme.FinnhubQuotesTheme
 import com.sypark.finnhub.core.ui.theme.PriceTypographyMedium
 import com.sypark.finnhub.core.ui.theme.ShapeCard
@@ -91,7 +94,10 @@ fun QuoteRow(
             .clip(ShapeCard)
             .background(backgroundColor)
             .clickable(onClick = onClick)
-            .padding(horizontal = Spacing.space4),
+            .padding(horizontal = Spacing.space4)
+            .semantics(mergeDescendants = true) {
+                contentDescription = priceContentDescription(displayName, price, changePercent, changeDirection)
+            },
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
