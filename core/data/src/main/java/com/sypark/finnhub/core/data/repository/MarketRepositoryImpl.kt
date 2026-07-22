@@ -104,6 +104,8 @@ class MarketRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun disconnect() = webSocketManager.disconnect()
+
     override suspend fun getQuote(symbol: String): AppResult<Quote> = withContext(dispatchers.io) {
         try {
             val quote = apiService.getQuote(symbol).toDomain(symbol)
