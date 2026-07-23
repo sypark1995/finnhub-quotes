@@ -61,6 +61,7 @@ class MarketRepositoryImplTest {
 
     @Test
     fun `getQuote returns a REST-sourced Quote and caches it on success`() = runTest {
+        every { quoteCacheDao.observe("AAPL") } returns flowOf(null)
         coEvery { apiService.getQuote("AAPL") } returns QuoteDto(198.5, 2.3, 1.17, 199.1, 196.8, 197.2, 196.2, 1_720_000_000)
 
         val result = repository.getQuote("AAPL")
@@ -73,13 +74,23 @@ class MarketRepositoryImplTest {
     fun `getQuote falls back to the cached quote when the network call fails`() = runTest {
         coEvery { apiService.getQuote("AAPL") } throws IOException("offline")
         every { quoteCacheDao.observe("AAPL") } returns flowOf(
-            QuoteCacheEntity("AAPL", 198.5, 2.3, 1.17, 199.1, 196.8, 197.2, 196.2, updatedAt = 1L),
+            QuoteCacheEntity("AAPL", 198.5, 2.3, 1.17, 199.1, 196.8, 197.2, 196.2, updatedAt = -300_000L),
         )
 
         val result = repository.getQuote("AAPL")
 
         assertTrue(result is AppResult.Success)
         assertEquals(QuoteSource.CACHE, (result as AppResult.Success).data.source)
+    }
+
+    @Test
+    fun `getQuote reads from the cache without a REST call when the cache is within the 5-minute TTL`() = runTest {
+        every { quoteCacheDao.observe("AAPL") } returns flowOf(
+            com.sypark.finnhub.core.database.entity.QuoteCacheEntity("AAPL", 198.5, 2.3, 1.17, 199.1, 196.8, 197.2, 196.2, updatedAt = 9_800L),
+        )
+        val result = repository.getQuote("AAPL")
+        assertTrue(result is AppResult.Success)
+        coVerify(exactly = 0) { apiService.getQuote(any()) }
     }
 
     @Test
