@@ -1,56 +1,54 @@
 # Finnhub Quotes
 
-Finnhub API 기반 실시간 주식/환율 시세 Android 앱.
+Android app for realtime stock/forex quotes, built on the Finnhub REST + WebSocket API.
 
-## 주요 기능
+## Features
 
-- 실시간 시세 스트리밍(WebSocket) + 종목 검색/상세 정보(REST)
-- 워치리스트에 종목을 등록하면 실시간 가격 업데이트 표시
-- Finnhub 무료 티어 사용 (REST 60 req/min, WebSocket 동시 구독 50 symbols 제한 고려)
+- **Watchlist** — realtime WebSocket price updates, swipe-to-delete, drag-to-reorder, pull-to-refresh REST fallback
+- **Search** — debounced symbol/forex search with one-tap add/remove from the watchlist
+- **Detail** — candlestick chart (multiple resolutions), company profile, financial metrics, peers, news
+- **Price Alerts** — target-price alerts checked every 15 minutes via WorkManager, with system notifications
+- **Settings** — light/dark/system theme, live-switching
 
-## 화면
+## Architecture
 
-| 워치리스트 (빈 상태) |
-|---|
-| <img src="docs/screenshots/watchlist-empty.png" width="320" /> |
-
-현재 워치리스트 화면까지 구현 완료(로딩/빈/에러/성공 상태, 스와이프 삭제, 드래그 재정렬, 당겨서 새로고침, FAB). 검색/상세/알림 화면은 개발 중입니다.
-
-## 기술 스택
-
-- **언어**: Kotlin 1.9.24
-- **UI**: Jetpack Compose (BOM 2024.09.00), Single Activity + Navigation Compose
-- **아키텍처**: Clean Architecture + Feature Modules + MVI
-- **비동기**: Kotlin Coroutines 1.8.0 + Flow
-- **네트워크**: Retrofit 2.11.0 + OkHttp 4.12.0 (REST), OkHttp WebSocket (실시간 시세)
-- **직렬화**: Kotlinx Serialization
-- **DI**: Hilt 2.51.1
-- **로컬 저장소**: Room 2.6.1 (워치리스트/시세 캐시), DataStore 1.1.1 (설정)
-- **테스트**: JUnit5 + MockK + Turbine + OkHttp MockWebServer + Robolectric
-
-## 모듈 구조
+Clean Architecture + feature modules + MVI (State/Intent/Effect): each `feature/*` module owns a ViewModel exposing a single `StateFlow` of UI state plus a `Flow` of one-off effects, driven by `domain`-layer UseCases that depend only on `domain`-layer Repository interfaces — never on `data`-layer implementations directly.
 
 ```
-app/                    # MainActivity, Application, Navigation 그래프, Hilt 설정
+app/                  Hilt Application, MainActivity, Navigation graph, Settings screen
 core/
-  ├─ common/            # AppResult, UiError, 공용 enum 등 순수 Kotlin 공유 타입
-  ├─ domain/            # Repository 인터페이스, UseCase, 도메인 모델 (순수 Kotlin, Android 의존성 금지)
-  ├─ ui/                # 공통 Compose 컴포넌트, 테마, 디자인 토큰
-  ├─ network/           # Retrofit/OkHttp REST 클라이언트, DTO, 인터셉터
-  ├─ websocket/         # OkHttp WebSocket 매니저, 재연결/구독 관리
-  ├─ database/          # Room DB, Entity, DAO
-  ├─ datastore/         # DataStore 기반 사용자 설정
-  └─ data/              # Repository 구현체, 매퍼 (DTO/Entity ↔ 도메인 모델 변환)
+  common/              AppResult, UiError, AssetType, AlertCondition, AppDispatchers, AppCoroutineScope
+  domain/              UseCases, domain models, Repository interfaces (pure Kotlin, no Android dep)
+  ui/                  Theme, design tokens, common Compose components, formatters
+  network/             Retrofit/OkHttp, Finnhub REST DTOs and service
+  websocket/           FinnhubWebSocketManager, reconnect backoff, subscription sync
+  database/            Room entities/DAOs (watchlist, quote cache, candle cache, price alerts)
+  datastore/           DataStore Preferences (refresh interval, theme mode)
+  data/                Repository implementations, composing network+websocket+database+datastore
 feature/
-  ├─ watchlist/         # 워치리스트 화면 (실시간 시세 목록)
-  ├─ search/            # 종목 검색
-  ├─ detail/            # 종목 상세 (차트, 프로필, 실시간 체결가)
-  └─ alert/             # 가격 알림
+  watchlist/           Watchlist screen + ViewModel
+  search/               Search screen + ViewModel
+  detail/               Detail screen (chart/profile/news/peers) + ViewModel
+  alert/                Alert list/create screens, ViewModels, WorkManager worker, notifications
 ```
 
-## 레이어 규칙
+## Setup
 
-- **domain**: Repository 인터페이스, UseCase, 도메인 모델만 위치. Android/Retrofit/Room 의존성 금지. UseCase는 단일 `operator fun invoke()` 패턴.
-- **data**: Repository 구현체, DTO/Entity ↔ 도메인 모델 매퍼. DTO/Entity는 `core:data` 밖으로 노출되지 않음. API 응답은 `AppResult` sealed class로 래핑.
-- **presentation**: ViewModel은 UseCase만 주입받음(Repository 직접 참조 금지). 화면별 State/Intent/Effect 기반 MVI, 단방향 데이터 흐름(UDF).
+1. Copy `local.properties.sample` to `local.properties` (already git-ignored).
+2. Add your Finnhub API key: `FINNHUB_API_KEY=<your key>` (get one free at https://finnhub.io).
+3. Open in Android Studio or run `./gradlew assembleDebug`.
 
+Without a valid API key, the app builds and runs, but every network call returns 401 — the empty-watchlist and empty-search states still work offline.
+
+## Testing
+
+```bash
+./gradlew test         # unit tests across all 13 modules (JUnit5 + Robolectric where an Android Context is needed)
+./gradlew lint          # Android Lint
+```
+
+No emulator/device is required for the full test suite.
+
+## Tech stack
+
+Kotlin 1.9.24 · Jetpack Compose (Material 3) · Coroutines/Flow · Hilt · Retrofit + OkHttp + kotlinx.serialization · Room · DataStore · WorkManager · Navigation Compose (type-safe routes) · Chart geometry hand-rolled with Compose Canvas (candlestick chart) · JUnit5 + MockK + Turbine + MockWebServer + Robolectric.
