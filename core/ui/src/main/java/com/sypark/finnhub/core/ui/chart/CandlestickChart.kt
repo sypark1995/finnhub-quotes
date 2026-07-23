@@ -18,13 +18,14 @@ import com.sypark.finnhub.core.ui.theme.FinnhubQuotesTheme
 fun CandlestickChart(
     candles: List<CandlestickChartEntry>,
     modifier: Modifier = Modifier,
+    height: androidx.compose.ui.unit.Dp = 280.dp,
 ) {
     val extended = AppTheme.extended
     val outlineColor = MaterialTheme.colorScheme.outline
 
     if (candles.isEmpty()) {
         androidx.compose.foundation.layout.Box(
-            modifier = modifier.fillMaxWidth().height(280.dp),
+            modifier = modifier.fillMaxWidth().height(height),
             contentAlignment = Alignment.Center,
         ) {
             Text("차트 데이터가 없습니다", color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -39,7 +40,7 @@ fun CandlestickChart(
     Canvas(
         modifier = modifier
             .fillMaxWidth()
-            .height(280.dp),
+            .height(height),
     ) {
         // Grid lines (ui-design.md §5.3 "Grid lines | outline 30% alpha")
         val gridLineColor = outlineColor.copy(alpha = 0.3f)

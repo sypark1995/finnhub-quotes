@@ -153,12 +153,17 @@ private fun tabLabel(tab: DetailTab): String = when (tab) {
 // replacing exactly one of these four with its real implementation.
 @Composable
 private fun ChartTab(state: DetailState, onIntent: (DetailIntent) -> Unit) {
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    val chartHeight = if (isLandscape) 400.dp else 280.dp
+    val chartPadding = if (isLandscape) 24.dp else Spacing.space4
     Column {
         com.sypark.finnhub.core.ui.chart.CandlestickChart(
             candles = state.candles.map {
                 com.sypark.finnhub.core.ui.chart.CandlestickChartEntry(it.timestamp, it.open, it.high, it.low, it.close)
             },
-            modifier = Modifier.padding(horizontal = Spacing.space4),
+            modifier = Modifier.padding(horizontal = chartPadding),
+            height = chartHeight,
         )
         androidx.compose.foundation.lazy.LazyRow(
             modifier = Modifier.padding(horizontal = Spacing.space4, vertical = Spacing.space2),
