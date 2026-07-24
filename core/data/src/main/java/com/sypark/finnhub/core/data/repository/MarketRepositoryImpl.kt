@@ -30,6 +30,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
@@ -50,23 +52,29 @@ class MarketRepositoryImpl @Inject constructor(
             return@callbackFlow
         }
         val currentQuotes = mutableMapOf<String, Quote>()
+        val quotesMutex = Mutex()
         webSocketManager.connect()
         webSocketManager.syncSubscriptions(symbols)
 
         val cacheJob = launch(dispatchers.io) {
             quoteCacheDao.observeAll().collect { cached ->
-                cached.filter { it.symbol in symbols }.forEach { entity ->
-                    if (currentQuotes[entity.symbol] == null) currentQuotes[entity.symbol] = entity.toDomain()
+                quotesMutex.withLock {
+                    cached.filter { it.symbol in symbols }.forEach { entity ->
+                        if (currentQuotes[entity.symbol] == null) currentQuotes[entity.symbol] = entity.toDomain()
+                    }
+                    trySend(currentQuotes.toMap())
                 }
-                trySend(currentQuotes.toMap())
             }
         }
         val tradeJob = launch(dispatchers.io) {
             webSocketManager.tradeUpdates.collect { trade ->
                 if (trade.symbol !in symbols) return@collect
-                val updated = trade.toDomain(previous = currentQuotes[trade.symbol])
-                currentQuotes[trade.symbol] = updated
-                trySend(currentQuotes.toMap())
+                val updated = quotesMutex.withLock {
+                    val u = trade.toDomain(previous = currentQuotes[trade.symbol])
+                    currentQuotes[trade.symbol] = u
+                    trySend(currentQuotes.toMap())
+                    u
+                }
                 quoteCacheDao.upsert(updated.toCacheEntity())
             }
         }
@@ -78,8 +86,10 @@ class MarketRepositoryImpl @Inject constructor(
                             symbols.forEach { symbol ->
                                 val dto = runCatching { apiService.getQuote(symbol) }.getOrNull() ?: return@forEach
                                 val quote = dto.toDomain(symbol)
-                                currentQuotes[symbol] = quote
-                                trySend(currentQuotes.toMap())
+                                quotesMutex.withLock {
+                                    currentQuotes[symbol] = quote
+                                    trySend(currentQuotes.toMap())
+                                }
                                 quoteCacheDao.upsert(quote.toCacheEntity())
                             }
                             delay(intervalSeconds * 1000L)

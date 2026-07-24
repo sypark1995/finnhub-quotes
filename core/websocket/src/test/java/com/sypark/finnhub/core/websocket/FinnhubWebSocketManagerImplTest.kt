@@ -53,6 +53,22 @@ class FinnhubWebSocketManagerImplTest {
     }
 
     @Test
+    fun `connect is idempotent - calling it again while Connected opens no second socket`() = runTest {
+        server.enqueue(MockResponse().withWebSocketUpgrade(object : WebSocketListener() {}))
+
+        manager.connect()
+        manager.connectionState.first { it == ConnectionState.Connected }
+
+        // Re-invoking connect() while already Connected must be a no-op (the leak this guards against):
+        // no second okHttpClient.newWebSocket(...) call, so the server sees only the original upgrade request.
+        manager.connect()
+        manager.connect()
+
+        assertEquals(ConnectionState.Connected, manager.connectionState.value)
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test
     fun `a trade message from the server is parsed and emitted on tradeUpdates`() = runTest {
         lateinit var serverSocket: WebSocket
         server.enqueue(
