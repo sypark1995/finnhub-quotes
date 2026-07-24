@@ -19,11 +19,17 @@ object DatabaseModule {
     @Singleton
     fun provideAppDatabase(@ApplicationContext context: Context): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, DATABASE_NAME)
-            // Pre-release: schema has changed 3 times during development (v1->v4) with no shipped
-            // release and no production users yet, so a destructive fallback (drop + recreate) is
-            // the pragmatic choice over hand-written migrations for a schema still in flux.
-            // MUST be replaced with real Migration objects before this app's first real release,
-            // since WatchlistEntity/PriceAlertEntity hold real user data at that point.
+            // Pre-release: schema changed 3 times during development (v1->v4) with no shipped
+            // release and no production users yet, so destructive fallback (drop + recreate) remains
+            // the pragmatic choice for that historical range -- no exported schema JSON exists for
+            // v1-v3 to safely validate a hand-written migration against, and rewriting one blind
+            // would be undetectable guesswork for versions nobody has installed.
+            //
+            // From v4 onward, AppDatabase.exportSchema = true and a v4 schema snapshot is committed
+            // at core/database/schemas/.../4.json -- any FUTURE bump (v4 -> v5+, e.g. before a real
+            // release ships) MUST add a real Migration(4, 5) tested with
+            // androidx.room:room-testing's MigrationTestHelper (already a test dependency in this
+            // module), not another destructive-fallback shortcut.
             .fallbackToDestructiveMigration()
             .build()
 
