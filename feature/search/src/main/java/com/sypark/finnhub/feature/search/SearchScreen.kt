@@ -43,7 +43,7 @@ import kotlinx.coroutines.flow.collectLatest
 
 @Composable
 fun SearchRoute(
-    onNavigateToDetail: (String) -> Unit,
+    onNavigateToDetail: (String, com.sypark.finnhub.core.common.AssetType) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SearchViewModel = hiltViewModel(),
 ) {
@@ -52,7 +52,7 @@ fun SearchRoute(
     LaunchedEffect(viewModel) {
         viewModel.effect.collectLatest { effect ->
             when (effect) {
-                is SearchEffect.NavigateToDetail -> onNavigateToDetail(effect.symbol)
+                is SearchEffect.NavigateToDetail -> onNavigateToDetail(effect.symbol, effect.assetType)
             }
         }
     }
@@ -154,7 +154,7 @@ private fun SearchResults(state: SearchState, onIntent: (SearchIntent) -> Unit) 
                                 onIntent(SearchIntent.AddToWatchlist(result))
                             }
                         },
-                        onClick = { onIntent(SearchIntent.OpenDetail(result.symbol)) },
+                        onClick = { onIntent(SearchIntent.OpenDetail(result.symbol, result.assetType)) },
                     )
                 }
             }

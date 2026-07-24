@@ -16,9 +16,9 @@ sealed interface SearchIntent {
     data class FilterChanged(val filter: AssetTypeFilter) : SearchIntent
     data class AddToWatchlist(val result: SearchResultUi) : SearchIntent
     data class RemoveFromWatchlist(val symbol: String) : SearchIntent
-    data class OpenDetail(val symbol: String) : SearchIntent
+    data class OpenDetail(val symbol: String, val assetType: com.sypark.finnhub.core.common.AssetType) : SearchIntent
 }
 
 sealed interface SearchEffect {
-    data class NavigateToDetail(val symbol: String) : SearchEffect
+    data class NavigateToDetail(val symbol: String, val assetType: com.sypark.finnhub.core.common.AssetType) : SearchEffect
 }
