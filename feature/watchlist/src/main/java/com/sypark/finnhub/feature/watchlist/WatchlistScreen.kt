@@ -12,7 +12,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -190,6 +192,7 @@ fun WatchlistScreen(
                                     )
                                     androidx.compose.material3.SwipeToDismissBox(
                                         state = dismissState,
+                                        modifier = Modifier.fillMaxWidth(),
                                         enableDismissFromStartToEnd = false,
                                         backgroundContent = {
                                             androidx.compose.foundation.layout.Box(
@@ -209,6 +212,9 @@ fun WatchlistScreen(
                                     ) {
                                         val quote = state.quotes[item.symbol]
                                         androidx.compose.foundation.layout.Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .background(androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant),
                                             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                                         ) {
                                             QuoteRow(
@@ -222,27 +228,35 @@ fun WatchlistScreen(
                                                 quoteSource = quote?.quoteSource ?: com.sypark.finnhub.core.ui.model.UiQuoteSource.CACHE,
                                                 onClick = { onIntent(WatchlistIntent.OpenDetail(item.symbol, item.assetType)) },
                                             )
-                                            androidx.compose.material3.Icon(
-                                                imageVector = androidx.compose.material.icons.Icons.Filled.DragHandle,
-                                                contentDescription = "순서 변경",
-                                                modifier = Modifier.pointerInput(item.symbol) {
-                                                    detectDragGesturesAfterLongPress(
-                                                        onDragStart = { draggingIndex = state.items.indexOf(item) },
-                                                        onDragEnd = {
-                                                            val from = draggingIndex
-                                                            draggingIndex = null
-                                                            dragOffsetY = 0f
-                                                            if (from != null) {
-                                                                val to = (from + (dragOffsetY / com.sypark.finnhub.core.ui.theme.Spacing.quoteRowHeight.value).toInt())
-                                                                    .coerceIn(0, state.items.lastIndex)
-                                                                if (to != from) onIntent(WatchlistIntent.Reorder(from, to))
-                                                            }
-                                                        },
-                                                        onDragCancel = { draggingIndex = null; dragOffsetY = 0f },
-                                                        onDrag = { change, dragAmount -> change.consume(); dragOffsetY += dragAmount.y },
-                                                    )
-                                                },
-                                            )
+                                            androidx.compose.foundation.layout.Box(
+                                                modifier = Modifier
+                                                    .fillMaxHeight()
+                                                    .background(androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant)
+                                                    .pointerInput(item.symbol) {
+                                                        detectDragGesturesAfterLongPress(
+                                                            onDragStart = { draggingIndex = state.items.indexOf(item) },
+                                                            onDragEnd = {
+                                                                val from = draggingIndex
+                                                                draggingIndex = null
+                                                                dragOffsetY = 0f
+                                                                if (from != null) {
+                                                                    val to = (from + (dragOffsetY / com.sypark.finnhub.core.ui.theme.Spacing.quoteRowHeight.value).toInt())
+                                                                        .coerceIn(0, state.items.lastIndex)
+                                                                    if (to != from) onIntent(WatchlistIntent.Reorder(from, to))
+                                                                }
+                                                            },
+                                                            onDragCancel = { draggingIndex = null; dragOffsetY = 0f },
+                                                            onDrag = { change, dragAmount -> change.consume(); dragOffsetY += dragAmount.y },
+                                                        )
+                                                    },
+                                                contentAlignment = androidx.compose.ui.Alignment.Center,
+                                            ) {
+                                                androidx.compose.material3.Icon(
+                                                    imageVector = androidx.compose.material.icons.Icons.Filled.DragHandle,
+                                                    contentDescription = "순서 변경",
+                                                    modifier = Modifier.padding(horizontal = com.sypark.finnhub.core.ui.theme.Spacing.space2),
+                                                )
+                                            }
                                         }
                                     }
                                 }
