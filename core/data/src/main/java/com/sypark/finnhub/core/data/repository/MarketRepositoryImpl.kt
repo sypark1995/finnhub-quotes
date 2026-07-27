@@ -8,6 +8,7 @@ import com.sypark.finnhub.core.data.mapper.toDomain
 import com.sypark.finnhub.core.data.util.CacheTtl
 import com.sypark.finnhub.core.database.dao.CandleCacheDao
 import com.sypark.finnhub.core.database.dao.QuoteCacheDao
+import com.sypark.finnhub.core.datastore.UserPreferencesDataSource
 import com.sypark.finnhub.core.domain.model.Candle
 import com.sypark.finnhub.core.domain.model.ConnectionStatus
 import com.sypark.finnhub.core.domain.model.EarningsEvent
@@ -21,12 +22,16 @@ import com.sypark.finnhub.core.network.FinnhubApiService
 import com.sypark.finnhub.core.websocket.ConnectionState
 import com.sypark.finnhub.core.websocket.FinnhubWebSocketManager
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
@@ -35,6 +40,7 @@ class MarketRepositoryImpl @Inject constructor(
     private val webSocketManager: FinnhubWebSocketManager,
     private val quoteCacheDao: QuoteCacheDao,
     private val candleCacheDao: CandleCacheDao,
+    private val preferencesDataSource: UserPreferencesDataSource,
     private val dispatchers: AppDispatchers,
     private val nowProvider: () -> Long = { System.currentTimeMillis() },
 ) : MarketRepository {
@@ -46,29 +52,56 @@ class MarketRepositoryImpl @Inject constructor(
             return@callbackFlow
         }
         val currentQuotes = mutableMapOf<String, Quote>()
+        val quotesMutex = Mutex()
         webSocketManager.connect()
         webSocketManager.syncSubscriptions(symbols)
 
         val cacheJob = launch(dispatchers.io) {
             quoteCacheDao.observeAll().collect { cached ->
-                cached.filter { it.symbol in symbols }.forEach { entity ->
-                    if (currentQuotes[entity.symbol] == null) currentQuotes[entity.symbol] = entity.toDomain()
+                quotesMutex.withLock {
+                    cached.filter { it.symbol in symbols }.forEach { entity ->
+                        if (currentQuotes[entity.symbol] == null) currentQuotes[entity.symbol] = entity.toDomain()
+                    }
+                    trySend(currentQuotes.toMap())
                 }
-                trySend(currentQuotes.toMap())
             }
         }
         val tradeJob = launch(dispatchers.io) {
             webSocketManager.tradeUpdates.collect { trade ->
                 if (trade.symbol !in symbols) return@collect
-                val updated = trade.toDomain(previous = currentQuotes[trade.symbol])
-                currentQuotes[trade.symbol] = updated
-                trySend(currentQuotes.toMap())
+                val updated = quotesMutex.withLock {
+                    val u = trade.toDomain(previous = currentQuotes[trade.symbol])
+                    currentQuotes[trade.symbol] = u
+                    trySend(currentQuotes.toMap())
+                    u
+                }
                 quoteCacheDao.upsert(updated.toCacheEntity())
+            }
+        }
+        val fallbackJob = launch(dispatchers.io) {
+            preferencesDataSource.refreshIntervalSeconds.collectLatest { intervalSeconds ->
+                webSocketManager.connectionState.collectLatest { connectionState ->
+                    if (connectionState != ConnectionState.Connected) {
+                        while (true) {
+                            symbols.forEach { symbol ->
+                                val dto = runCatching { apiService.getQuote(symbol) }.getOrNull() ?: return@forEach
+                                val quote = dto.toDomain(symbol)
+                                quotesMutex.withLock {
+                                    currentQuotes[symbol] = quote
+                                    trySend(currentQuotes.toMap())
+                                }
+                                quoteCacheDao.upsert(quote.toCacheEntity())
+                            }
+                            delay(intervalSeconds * 1000L)
+                        }
+                    }
+                }
             }
         }
         awaitClose {
             cacheJob.cancel()
             tradeJob.cancel()
+            fallbackJob.cancel()
         }
     }.flowOn(dispatchers.io)
 
@@ -81,13 +114,18 @@ class MarketRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun disconnect() = webSocketManager.disconnect()
+
     override suspend fun getQuote(symbol: String): AppResult<Quote> = withContext(dispatchers.io) {
+        val cached = quoteCacheDao.observe(symbol).first()
+        if (CacheTtl.isFresh(cached?.updatedAt, nowProvider(), CacheTtl.QUOTE_TTL_MILLIS)) {
+            return@withContext AppResult.Success(cached!!.toDomain())
+        }
         try {
             val quote = apiService.getQuote(symbol).toDomain(symbol)
             quoteCacheDao.upsert(quote.toCacheEntity())
             AppResult.Success(quote)
         } catch (throwable: Throwable) {
-            val cached = quoteCacheDao.observe(symbol).first()
             if (cached != null) AppResult.Success(cached.toDomain()) else AppResult.Error(mapNetworkError(throwable))
         }
     }

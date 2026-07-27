@@ -11,6 +11,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import com.sypark.finnhub.core.ui.component.AppBottomBar
 
@@ -47,9 +49,11 @@ fun AppScaffold(
         },
         bottomBar = {
             if (config.showBottomBar && config.bottomNavTab != null) {
+                val badgeViewModel: AlertBadgeViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+                val alertBadgeCount by badgeViewModel.enabledAlertCount.collectAsStateWithLifecycle()
                 AppBottomBar(
                     selectedTab = config.bottomNavTab,
-                    alertBadgeCount = 0, // Task 59 replaces this with live enabled-alert count.
+                    alertBadgeCount = alertBadgeCount,
                     onTabSelected = { tab -> navController.navigateToTab(tab) },
                 )
             }

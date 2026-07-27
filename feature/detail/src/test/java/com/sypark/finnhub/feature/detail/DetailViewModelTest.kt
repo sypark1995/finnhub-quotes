@@ -14,9 +14,14 @@ import com.sypark.finnhub.core.domain.usecase.detail.GetStockMetricsUseCase
 import com.sypark.finnhub.core.domain.usecase.detail.GetStockProfileUseCase
 import com.sypark.finnhub.core.domain.usecase.detail.IsInWatchlistUseCase
 import com.sypark.finnhub.core.domain.usecase.detail.ToggleWatchlistUseCase
+import com.sypark.finnhub.core.domain.usecase.watchlist.ObserveQuotesUseCase
 import io.mockk.coEvery
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -32,6 +37,7 @@ class DetailViewModelTest {
 
     private val dispatcher = StandardTestDispatcher()
     private val getQuoteUseCase = mockk<GetQuoteUseCase>()
+    private val observeQuotesUseCase = mockk<ObserveQuotesUseCase>()
     private val getStockProfileUseCase = mockk<GetStockProfileUseCase>()
     private val getStockMetricsUseCase = mockk<GetStockMetricsUseCase>()
     private val getPeersUseCase = mockk<GetPeersUseCase>()
@@ -54,14 +60,15 @@ class DetailViewModelTest {
         coEvery { getCandlesUseCase("AAPL", "D", any(), any()) } returns AppResult.Success(emptyList())
         coEvery { getCompanyNewsUseCase("AAPL", any(), any()) } returns AppResult.Success(emptyList())
         coEvery { isInWatchlistUseCase("AAPL") } returns false
+        every { observeQuotesUseCase(setOf("AAPL")) } returns flowOf(emptyMap())
     }
 
     @AfterEach
     fun tearDown() = Dispatchers.resetMain()
 
-    private fun buildViewModel() = DetailViewModel(
-        SavedStateHandle(mapOf("symbol" to "AAPL")),
-        getQuoteUseCase, getStockProfileUseCase, getStockMetricsUseCase,
+    private fun buildViewModel(savedState: Map<String, String> = mapOf("symbol" to "AAPL")) = DetailViewModel(
+        SavedStateHandle(savedState),
+        getQuoteUseCase, observeQuotesUseCase, getStockProfileUseCase, getStockMetricsUseCase,
         getPeersUseCase, getCandlesUseCase, getCompanyNewsUseCase, toggleWatchlistUseCase, isInWatchlistUseCase,
     )
 
@@ -88,6 +95,49 @@ class DetailViewModelTest {
         dispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(true, viewModel.state.value.isInWatchlist)
+    }
+
+    @Test
+    fun `Load subscribes to the live quote stream and updates the price header as trades arrive`() = runTest(dispatcher) {
+        // Emit the live quote after a tick so it lands after load()'s one-shot REST snapshot,
+        // mirroring production where the long-lived stream keeps overriding the header over time.
+        every { observeQuotesUseCase(setOf("AAPL")) } returns flow {
+            delay(1)
+            emit(mapOf("AAPL" to Quote("AAPL", 205.0, 6.5, 3.27, 206.0, 200.0, 201.0, 198.5, 2L, QuoteSource.WEBSOCKET)))
+        }
+        val viewModel = buildViewModel()
+
+        viewModel.onIntent(DetailIntent.Load)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("$205.00", viewModel.state.value.quote?.price)
+    }
+
+    @Test
+    fun `Load resolves assetType from the assetTypeName nav arg instead of the symbol heuristic`() = runTest(dispatcher) {
+        // "EURUSD" has neither ":" nor "_", so assetTypeFromSymbol would default it to STOCK.
+        // Passing assetTypeName = FOREX via SavedStateHandle must win over that heuristic guess —
+        // observable via formatPrice: STOCK/CRYPTO render "$#,##0.00", FOREX renders plain "0.0000".
+        coEvery { getQuoteUseCase("EURUSD") } returns AppResult.Success(
+            Quote("EURUSD", 1.2345, 0.001, 0.08, 1.235, 1.23, 1.232, 1.231, 1L, QuoteSource.REST),
+        )
+        coEvery { getStockProfileUseCase("EURUSD") } returns AppResult.Success(
+            StockProfile("EURUSD", "Euro / US Dollar", "", "", "", 0.0, "", "USD"),
+        )
+        coEvery { getStockMetricsUseCase("EURUSD") } returns AppResult.Success(
+            StockMetrics("EURUSD", null, null, null, null, null),
+        )
+        coEvery { getPeersUseCase("EURUSD") } returns AppResult.Success(emptyList())
+        coEvery { getCandlesUseCase("EURUSD", "D", any(), any()) } returns AppResult.Success(emptyList())
+        coEvery { getCompanyNewsUseCase("EURUSD", any(), any()) } returns AppResult.Success(emptyList())
+        coEvery { isInWatchlistUseCase("EURUSD") } returns false
+        every { observeQuotesUseCase(setOf("EURUSD")) } returns flowOf(emptyMap())
+
+        val viewModel = buildViewModel(mapOf("symbol" to "EURUSD", "assetTypeName" to "FOREX"))
+        viewModel.onIntent(DetailIntent.Load)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("1.2345", viewModel.state.value.quote?.price)
     }
 
     @Test

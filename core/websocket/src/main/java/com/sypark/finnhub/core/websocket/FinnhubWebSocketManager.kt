@@ -85,6 +85,7 @@ class FinnhubWebSocketManagerImpl @Inject constructor(
     }
 
     override suspend fun connect() {
+        if (_connectionState.value == ConnectionState.Connecting || _connectionState.value == ConnectionState.Connected) return
         userInitiatedDisconnect = false
         _connectionState.value = ConnectionState.Connecting
         webSocket = okHttpClient.newWebSocket(Request.Builder().url(webSocketUrl).build(), listener)

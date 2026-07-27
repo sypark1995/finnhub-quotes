@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -41,7 +42,16 @@ class MarketRepositoryImplTest {
     private val webSocketManager = mockk<FinnhubWebSocketManager>(relaxUnitFun = true)
     private val quoteCacheDao = mockk<QuoteCacheDao>(relaxUnitFun = true)
     private val candleCacheDao = mockk<com.sypark.finnhub.core.database.dao.CandleCacheDao>(relaxUnitFun = true)
-    private val repository = MarketRepositoryImpl(apiService, webSocketManager, quoteCacheDao, candleCacheDao, AppDispatchers()) { 10_000L }
+    private val preferencesDataSource = mockk<com.sypark.finnhub.core.datastore.UserPreferencesDataSource>()
+    private val repository = MarketRepositoryImpl(apiService, webSocketManager, quoteCacheDao, candleCacheDao, preferencesDataSource, AppDispatchers()) { 10_000L }
+
+    init {
+        // Task 68's fallbackJob reads these on every observeQuotes call. Defaulting to
+        // Connected means the fallback poll branch never activates for tests that don't
+        // care about it; the one test that does (below) overrides both with `every`.
+        every { webSocketManager.connectionState } returns MutableStateFlow(ConnectionState.Connected)
+        every { preferencesDataSource.refreshIntervalSeconds } returns flowOf(30)
+    }
 
     @Test
     fun `observeConnectionStatus maps every websocket ConnectionState to the domain ConnectionStatus`() = runTest {
@@ -51,6 +61,7 @@ class MarketRepositoryImplTest {
 
     @Test
     fun `getQuote returns a REST-sourced Quote and caches it on success`() = runTest {
+        every { quoteCacheDao.observe("AAPL") } returns flowOf(null)
         coEvery { apiService.getQuote("AAPL") } returns QuoteDto(198.5, 2.3, 1.17, 199.1, 196.8, 197.2, 196.2, 1_720_000_000)
 
         val result = repository.getQuote("AAPL")
@@ -63,13 +74,23 @@ class MarketRepositoryImplTest {
     fun `getQuote falls back to the cached quote when the network call fails`() = runTest {
         coEvery { apiService.getQuote("AAPL") } throws IOException("offline")
         every { quoteCacheDao.observe("AAPL") } returns flowOf(
-            QuoteCacheEntity("AAPL", 198.5, 2.3, 1.17, 199.1, 196.8, 197.2, 196.2, updatedAt = 1L),
+            QuoteCacheEntity("AAPL", 198.5, 2.3, 1.17, 199.1, 196.8, 197.2, 196.2, updatedAt = -300_000L),
         )
 
         val result = repository.getQuote("AAPL")
 
         assertTrue(result is AppResult.Success)
         assertEquals(QuoteSource.CACHE, (result as AppResult.Success).data.source)
+    }
+
+    @Test
+    fun `getQuote reads from the cache without a REST call when the cache is within the 5-minute TTL`() = runTest {
+        every { quoteCacheDao.observe("AAPL") } returns flowOf(
+            com.sypark.finnhub.core.database.entity.QuoteCacheEntity("AAPL", 198.5, 2.3, 1.17, 199.1, 196.8, 197.2, 196.2, updatedAt = 9_800L),
+        )
+        val result = repository.getQuote("AAPL")
+        assertTrue(result is AppResult.Success)
+        coVerify(exactly = 0) { apiService.getQuote(any()) }
     }
 
     @Test
@@ -220,6 +241,33 @@ class MarketRepositoryImplTest {
             attempts++
         }
         assertFalse(cacheCollecting.value)
+    }
+
+    @Test
+    fun `observeQuotes polls REST via getQuote while disconnected`() = kotlinx.coroutines.runBlocking {
+        // fallbackJob runs on the production AppDispatchers().io (real Dispatchers.IO). Using
+        // runTest here would resolve withTimeout's deadline against the virtual-time scheduler,
+        // which auto-advances past real background work with no wall-clock wait, racing the
+        // real dispatcher. runBlocking gives this one test a real event loop with real delays,
+        // so waiting on a CompletableDeferred completed from the real IO thread works correctly.
+        // The loop's *first* iteration fires immediately with no delay, so this test only needs
+        // to wait for that first real completion, not advance any virtual clock.
+        val connectionState = MutableStateFlow(com.sypark.finnhub.core.websocket.ConnectionState.Disconnected)
+        every { webSocketManager.connectionState } returns connectionState
+        every { webSocketManager.tradeUpdates } returns kotlinx.coroutines.flow.MutableSharedFlow()
+        every { quoteCacheDao.observeAll() } returns flowOf(emptyList())
+        every { preferencesDataSource.refreshIntervalSeconds } returns flowOf(30)
+        val polled = kotlinx.coroutines.CompletableDeferred<Unit>()
+        coEvery { apiService.getQuote("AAPL") } coAnswers {
+            polled.complete(Unit)
+            QuoteDto(198.5, 2.3, 1.17, 199.1, 196.8, 197.2, 196.2, 1L)
+        }
+
+        val job = launch { repository.observeQuotes(setOf("AAPL")).collect { } }
+        kotlinx.coroutines.withTimeout(5_000) { polled.await() }
+        job.cancel()
+
+        coVerify(atLeast = 1) { apiService.getQuote("AAPL") }
     }
 
     @Test

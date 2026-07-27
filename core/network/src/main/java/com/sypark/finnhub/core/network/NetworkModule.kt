@@ -37,6 +37,7 @@ object NetworkModule {
         }
         return OkHttpClient.Builder()
             .addInterceptor(logging)
+            .addInterceptor(RateLimitInterceptor())
             .addNetworkInterceptor(AuthInterceptor())
             .build()
     }

@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.Flow
 interface MarketRepository {
     fun observeQuotes(symbols: Set<String>): Flow<Map<String, Quote>>
     fun observeConnectionStatus(): Flow<ConnectionStatus>
+    suspend fun disconnect()
     suspend fun getQuote(symbol: String): AppResult<Quote>
     suspend fun search(query: String): AppResult<List<SearchResult>>
     suspend fun getCandles(symbol: String, resolution: String, from: Long, to: Long): AppResult<List<Candle>>

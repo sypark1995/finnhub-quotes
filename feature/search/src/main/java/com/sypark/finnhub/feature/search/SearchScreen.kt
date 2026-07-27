@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
@@ -34,6 +35,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sypark.finnhub.core.ui.component.EmptyState
+import com.sypark.finnhub.core.ui.component.StaggeredListItem
 import com.sypark.finnhub.core.ui.theme.ShapeCard
 import com.sypark.finnhub.core.ui.theme.ShapePill
 import com.sypark.finnhub.core.ui.theme.Spacing
@@ -41,7 +43,7 @@ import kotlinx.coroutines.flow.collectLatest
 
 @Composable
 fun SearchRoute(
-    onNavigateToDetail: (String) -> Unit,
+    onNavigateToDetail: (String, com.sypark.finnhub.core.common.AssetType) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SearchViewModel = hiltViewModel(),
 ) {
@@ -50,7 +52,7 @@ fun SearchRoute(
     LaunchedEffect(viewModel) {
         viewModel.effect.collectLatest { effect ->
             when (effect) {
-                is SearchEffect.NavigateToDetail -> onNavigateToDetail(effect.symbol)
+                is SearchEffect.NavigateToDetail -> onNavigateToDetail(effect.symbol, effect.assetType)
             }
         }
     }
@@ -141,18 +143,20 @@ private fun SearchResults(state: SearchState, onIntent: (SearchIntent) -> Unit) 
             onCtaClick = null,
         )
         else -> LazyColumn {
-            items(items = state.results, key = { it.symbol }) { result ->
-                SearchResultRow(
-                    result = result,
-                    onToggleWatchlist = {
-                        if (result.isInWatchlist) {
-                            onIntent(SearchIntent.RemoveFromWatchlist(result.symbol))
-                        } else {
-                            onIntent(SearchIntent.AddToWatchlist(result))
-                        }
-                    },
-                    onClick = { onIntent(SearchIntent.OpenDetail(result.symbol)) },
-                )
+            itemsIndexed(items = state.results, key = { _, result -> result.symbol }) { index, result ->
+                StaggeredListItem(index = index) {
+                    SearchResultRow(
+                        result = result,
+                        onToggleWatchlist = {
+                            if (result.isInWatchlist) {
+                                onIntent(SearchIntent.RemoveFromWatchlist(result.symbol))
+                            } else {
+                                onIntent(SearchIntent.AddToWatchlist(result))
+                            }
+                        },
+                        onClick = { onIntent(SearchIntent.OpenDetail(result.symbol, result.assetType)) },
+                    )
+                }
             }
         }
     }

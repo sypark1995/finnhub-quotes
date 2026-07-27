@@ -16,7 +16,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -38,6 +38,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.sypark.finnhub.core.common.UiError
 import com.sypark.finnhub.core.domain.model.ConnectionStatus
 import com.sypark.finnhub.core.ui.component.AppSnackbarHost
 import com.sypark.finnhub.core.ui.component.CapsuleButton
@@ -46,6 +47,7 @@ import com.sypark.finnhub.core.ui.component.EmptyState
 import com.sypark.finnhub.core.ui.component.ErrorBanner
 import com.sypark.finnhub.core.ui.component.QuoteRow
 import com.sypark.finnhub.core.ui.component.QuoteRowSkeleton
+import com.sypark.finnhub.core.ui.component.StaggeredListItem
 import com.sypark.finnhub.core.ui.model.ConnectionBannerState
 import com.sypark.finnhub.core.ui.theme.AppTheme
 import com.sypark.finnhub.core.ui.theme.Spacing
@@ -55,6 +57,13 @@ private fun ConnectionStatus.toBannerState(): ConnectionBannerState = when (this
     ConnectionStatus.Connected -> ConnectionBannerState.LIVE
     ConnectionStatus.Connecting, ConnectionStatus.Reconnecting -> ConnectionBannerState.RECONNECTING
     ConnectionStatus.Disconnected -> ConnectionBannerState.DELAYED
+}
+
+private fun errorMessage(error: UiError): String = when (error) {
+    UiError.RateLimited -> "요청이 많습니다. 잠시 후 다시 시도해 주세요"
+    UiError.Network -> "네트워크 연결을 확인해 주세요"
+    is UiError.Api -> "일시적인 오류가 발생했습니다 (${error.code})"
+    is UiError.Unknown -> "알 수 없는 오류가 발생했습니다"
 }
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
@@ -93,7 +102,7 @@ private fun CustomPullRefreshIndicator(
 
 @Composable
 fun WatchlistRoute(
-    onNavigateToDetail: (String) -> Unit,
+    onNavigateToDetail: (String, com.sypark.finnhub.core.common.AssetType) -> Unit,
     onNavigateToSearch: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: WatchlistViewModel = hiltViewModel(),
@@ -105,7 +114,7 @@ fun WatchlistRoute(
     LaunchedEffect(viewModel) {
         viewModel.effect.collectLatest { effect ->
             when (effect) {
-                is WatchlistEffect.NavigateToDetail -> onNavigateToDetail(effect.symbol)
+                is WatchlistEffect.NavigateToDetail -> onNavigateToDetail(effect.symbol, effect.assetType)
                 WatchlistEffect.NavigateToSearch -> onNavigateToSearch()
                 is WatchlistEffect.ShowSnackbar -> snackbarHostState.showSnackbar(effect.message)
             }
@@ -133,7 +142,7 @@ fun WatchlistScreen(
                     verticalArrangement = Arrangement.spacedBy(Spacing.space2),
                 ) { items(5) { QuoteRowSkeleton() } }
                 state.error != null && state.items.isEmpty() -> ErrorBanner(
-                    message = "네트워크 연결을 확인해 주세요",
+                    message = errorMessage(state.error),
                     onRetry = { onIntent(WatchlistIntent.Load) },
                 )
                 state.items.isEmpty() -> EmptyState(
@@ -144,7 +153,7 @@ fun WatchlistScreen(
                 )
                 else -> {
                     if (state.error != null) {
-                        ErrorBanner(message = "네트워크 연결을 확인해 주세요", onRetry = { onIntent(WatchlistIntent.Load) })
+                        ErrorBanner(message = errorMessage(state.error), onRetry = { onIntent(WatchlistIntent.Load) })
                     }
                     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
                     var draggingIndex by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<Int?>(null) }
@@ -167,72 +176,74 @@ fun WatchlistScreen(
                             contentPadding = PaddingValues(horizontal = Spacing.space4, vertical = Spacing.space2),
                             verticalArrangement = Arrangement.spacedBy(Spacing.space2),
                         ) {
-                            items(items = state.items, key = { it.symbol }) { item ->
-                                val dismissState = androidx.compose.material3.rememberSwipeToDismissBoxState(
-                                    confirmValueChange = { value ->
-                                        if (value == androidx.compose.material3.SwipeToDismissBoxValue.EndToStart) {
-                                            onIntent(WatchlistIntent.Remove(item.symbol))
-                                            true
-                                        } else {
-                                            false
-                                        }
-                                    },
-                                )
-                                androidx.compose.material3.SwipeToDismissBox(
-                                    state = dismissState,
-                                    enableDismissFromStartToEnd = false,
-                                    backgroundContent = {
-                                        androidx.compose.foundation.layout.Box(
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .background(com.sypark.finnhub.core.ui.theme.AppTheme.extended.loss),
-                                            contentAlignment = androidx.compose.ui.Alignment.CenterEnd,
+                            itemsIndexed(items = state.items, key = { _, item -> item.symbol }) { index, item ->
+                                StaggeredListItem(index = index) {
+                                    val dismissState = androidx.compose.material3.rememberSwipeToDismissBoxState(
+                                        confirmValueChange = { value ->
+                                            if (value == androidx.compose.material3.SwipeToDismissBoxValue.EndToStart) {
+                                                onIntent(WatchlistIntent.Remove(item.symbol))
+                                                true
+                                            } else {
+                                                false
+                                            }
+                                        },
+                                    )
+                                    androidx.compose.material3.SwipeToDismissBox(
+                                        state = dismissState,
+                                        enableDismissFromStartToEnd = false,
+                                        backgroundContent = {
+                                            androidx.compose.foundation.layout.Box(
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .background(com.sypark.finnhub.core.ui.theme.AppTheme.extended.loss),
+                                                contentAlignment = androidx.compose.ui.Alignment.CenterEnd,
+                                            ) {
+                                                androidx.compose.material3.Icon(
+                                                    imageVector = androidx.compose.material.icons.Icons.Filled.Delete,
+                                                    contentDescription = "삭제",
+                                                    tint = androidx.compose.ui.graphics.Color.White,
+                                                    modifier = Modifier.padding(end = com.sypark.finnhub.core.ui.theme.Spacing.space4),
+                                                )
+                                            }
+                                        },
+                                    ) {
+                                        val quote = state.quotes[item.symbol]
+                                        androidx.compose.foundation.layout.Row(
+                                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                                         ) {
+                                            QuoteRow(
+                                                modifier = Modifier.weight(1f),
+                                                symbol = item.symbol,
+                                                displayName = item.displayName,
+                                                assetType = item.assetType,
+                                                price = quote?.price ?: "—",
+                                                changePercent = quote?.changePercent ?: "—",
+                                                changeDirection = quote?.changeDirection ?: com.sypark.finnhub.core.ui.model.ChangeDirection.FLAT,
+                                                quoteSource = quote?.quoteSource ?: com.sypark.finnhub.core.ui.model.UiQuoteSource.CACHE,
+                                                onClick = { onIntent(WatchlistIntent.OpenDetail(item.symbol, item.assetType)) },
+                                            )
                                             androidx.compose.material3.Icon(
-                                                imageVector = androidx.compose.material.icons.Icons.Filled.Delete,
-                                                contentDescription = "삭제",
-                                                tint = androidx.compose.ui.graphics.Color.White,
-                                                modifier = Modifier.padding(end = com.sypark.finnhub.core.ui.theme.Spacing.space4),
+                                                imageVector = androidx.compose.material.icons.Icons.Filled.DragHandle,
+                                                contentDescription = "순서 변경",
+                                                modifier = Modifier.pointerInput(item.symbol) {
+                                                    detectDragGesturesAfterLongPress(
+                                                        onDragStart = { draggingIndex = state.items.indexOf(item) },
+                                                        onDragEnd = {
+                                                            val from = draggingIndex
+                                                            draggingIndex = null
+                                                            dragOffsetY = 0f
+                                                            if (from != null) {
+                                                                val to = (from + (dragOffsetY / com.sypark.finnhub.core.ui.theme.Spacing.quoteRowHeight.value).toInt())
+                                                                    .coerceIn(0, state.items.lastIndex)
+                                                                if (to != from) onIntent(WatchlistIntent.Reorder(from, to))
+                                                            }
+                                                        },
+                                                        onDragCancel = { draggingIndex = null; dragOffsetY = 0f },
+                                                        onDrag = { change, dragAmount -> change.consume(); dragOffsetY += dragAmount.y },
+                                                    )
+                                                },
                                             )
                                         }
-                                    },
-                                ) {
-                                    val quote = state.quotes[item.symbol]
-                                    androidx.compose.foundation.layout.Row(
-                                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                                    ) {
-                                        QuoteRow(
-                                            modifier = Modifier.weight(1f),
-                                            symbol = item.symbol,
-                                            displayName = item.displayName,
-                                            assetType = item.assetType,
-                                            price = quote?.price ?: "—",
-                                            changePercent = quote?.changePercent ?: "—",
-                                            changeDirection = quote?.changeDirection ?: com.sypark.finnhub.core.ui.model.ChangeDirection.FLAT,
-                                            quoteSource = quote?.quoteSource ?: com.sypark.finnhub.core.ui.model.UiQuoteSource.CACHE,
-                                            onClick = { onIntent(WatchlistIntent.OpenDetail(item.symbol)) },
-                                        )
-                                        androidx.compose.material3.Icon(
-                                            imageVector = androidx.compose.material.icons.Icons.Filled.DragHandle,
-                                            contentDescription = "순서 변경",
-                                            modifier = Modifier.pointerInput(item.symbol) {
-                                                detectDragGesturesAfterLongPress(
-                                                    onDragStart = { draggingIndex = state.items.indexOf(item) },
-                                                    onDragEnd = {
-                                                        val from = draggingIndex
-                                                        draggingIndex = null
-                                                        dragOffsetY = 0f
-                                                        if (from != null) {
-                                                            val to = (from + (dragOffsetY / com.sypark.finnhub.core.ui.theme.Spacing.quoteRowHeight.value).toInt())
-                                                                .coerceIn(0, state.items.lastIndex)
-                                                            if (to != from) onIntent(WatchlistIntent.Reorder(from, to))
-                                                        }
-                                                    },
-                                                    onDragCancel = { draggingIndex = null; dragOffsetY = 0f },
-                                                    onDrag = { change, dragAmount -> change.consume(); dragOffsetY += dragAmount.y },
-                                                )
-                                            },
-                                        )
                                     }
                                 }
                             }

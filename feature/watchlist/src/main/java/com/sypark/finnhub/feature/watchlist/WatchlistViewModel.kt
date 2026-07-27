@@ -2,8 +2,10 @@ package com.sypark.finnhub.feature.watchlist
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.sypark.finnhub.core.common.AppCoroutineScope
 import com.sypark.finnhub.core.common.AppResult
 import com.sypark.finnhub.core.domain.model.WatchlistItem
+import com.sypark.finnhub.core.domain.usecase.watchlist.DisconnectMarketUseCase
 import com.sypark.finnhub.core.domain.usecase.watchlist.ObserveConnectionStatusUseCase
 import com.sypark.finnhub.core.domain.usecase.watchlist.ObserveQuotesUseCase
 import com.sypark.finnhub.core.domain.usecase.watchlist.ObserveWatchlistUseCase
@@ -37,6 +39,8 @@ class WatchlistViewModel @Inject constructor(
     private val removeFromWatchlistUseCase: RemoveFromWatchlistUseCase,
     private val reorderWatchlistUseCase: ReorderWatchlistUseCase,
     private val refreshQuotesUseCase: RefreshQuotesUseCase,
+    private val disconnectMarketUseCase: DisconnectMarketUseCase,
+    private val appCoroutineScope: AppCoroutineScope,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(WatchlistState())
@@ -53,7 +57,7 @@ class WatchlistViewModel @Inject constructor(
             WatchlistIntent.Refresh -> refresh()
             is WatchlistIntent.Remove -> remove(intent.symbol)
             is WatchlistIntent.Reorder -> reorder(intent.fromIndex, intent.toIndex)
-            is WatchlistIntent.OpenDetail -> _effect.tryEmit(WatchlistEffect.NavigateToDetail(intent.symbol))
+            is WatchlistIntent.OpenDetail -> _effect.tryEmit(WatchlistEffect.NavigateToDetail(intent.symbol, intent.assetType))
             WatchlistIntent.OpenSearch -> _effect.tryEmit(WatchlistEffect.NavigateToSearch)
         }
     }
@@ -112,6 +116,19 @@ class WatchlistViewModel @Inject constructor(
     private fun reorder(fromIndex: Int, toIndex: Int) {
         viewModelScope.launch {
             reorderWatchlistUseCase(fromIndex, toIndex, latestDomainItems)
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        // Fire-and-forget: ViewModel is being destroyed, viewModelScope is already
+        // cancelled at this point, so this uses the injected AppCoroutineScope —
+        // a Singleton, Hilt-injectable, SupervisorJob-backed scope that already exists
+        // in this codebase for exactly this purpose (see its own doc comment: "Never use
+        // GlobalScope — inject this instead"). GlobalScope stays forbidden even in a
+        // teardown path (Global Constraints).
+        appCoroutineScope.launch {
+            disconnectMarketUseCase()
         }
     }
 }
