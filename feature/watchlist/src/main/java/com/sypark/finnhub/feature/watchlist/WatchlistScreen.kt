@@ -7,6 +7,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,15 +18,20 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshState
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
@@ -35,11 +41,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.sypark.finnhub.core.common.AssetType
 import com.sypark.finnhub.core.common.UiError
 import com.sypark.finnhub.core.domain.model.ConnectionStatus
 import com.sypark.finnhub.core.ui.component.AppSnackbarHost
@@ -50,6 +59,7 @@ import com.sypark.finnhub.core.ui.component.ErrorBanner
 import com.sypark.finnhub.core.ui.component.QuoteRow
 import com.sypark.finnhub.core.ui.component.QuoteRowSkeleton
 import com.sypark.finnhub.core.ui.component.StaggeredListItem
+import com.sypark.finnhub.core.ui.model.ChangeDirection
 import com.sypark.finnhub.core.ui.model.ConnectionBannerState
 import com.sypark.finnhub.core.ui.theme.AppTheme
 import com.sypark.finnhub.core.ui.theme.Spacing
@@ -137,6 +147,10 @@ fun WatchlistScreen(
     androidx.compose.foundation.layout.Box(modifier = modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
             ConnectionBanner(state = state.connectionStatus.toBannerState())
+
+            if (state.popularStocks.isNotEmpty()) {
+                PopularStocksSection(stocks = state.popularStocks, onIntent = onIntent)
+            }
 
             when {
                 state.isLoading -> LazyColumn(
@@ -284,5 +298,63 @@ fun WatchlistScreen(
             hostState = snackbarHostState,
             modifier = Modifier.align(androidx.compose.ui.Alignment.BottomCenter),
         )
+    }
+}
+
+@Composable
+private fun PopularStocksSection(
+    stocks: List<PopularStockUi>,
+    onIntent: (WatchlistIntent) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.padding(top = Spacing.space2)) {
+        Text(
+            text = "인기 종목",
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(horizontal = Spacing.space4, vertical = Spacing.space2),
+        )
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = Spacing.space4),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.space2),
+        ) {
+            items(items = stocks, key = { it.symbol }) { stock ->
+                PopularStockCard(
+                    stock = stock,
+                    onClick = { onIntent(WatchlistIntent.OpenDetail(stock.symbol, AssetType.STOCK)) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PopularStockCard(stock: PopularStockUi, onClick: () -> Unit) {
+    val changeColor = when (stock.changeDirection) {
+        ChangeDirection.UP -> AppTheme.extended.gain
+        ChangeDirection.DOWN -> AppTheme.extended.loss
+        ChangeDirection.FLAT -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    Column(
+        modifier = Modifier
+            .width(112.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(onClick = onClick)
+            .padding(Spacing.space3),
+    ) {
+        Text(text = stock.symbol, style = MaterialTheme.typography.labelLarge)
+        Text(
+            text = stock.displayName,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            text = stock.price,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(top = Spacing.space2),
+        )
+        Text(text = stock.changePercent, style = MaterialTheme.typography.labelMedium, color = changeColor)
     }
 }

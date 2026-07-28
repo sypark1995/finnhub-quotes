@@ -6,6 +6,7 @@ import com.sypark.finnhub.core.domain.model.ConnectionStatus
 data class WatchlistState(
     val items: List<WatchlistItemUi> = emptyList(),
     val quotes: Map<String, QuoteUi> = emptyMap(),
+    val popularStocks: List<PopularStockUi> = emptyList(),
     val connectionStatus: ConnectionStatus = ConnectionStatus.Disconnected,
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,

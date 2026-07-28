@@ -12,6 +12,7 @@ import com.sypark.finnhub.core.domain.usecase.watchlist.DisconnectMarketUseCase
 import com.sypark.finnhub.core.domain.usecase.watchlist.ObserveConnectionStatusUseCase
 import com.sypark.finnhub.core.domain.usecase.watchlist.ObserveQuotesUseCase
 import com.sypark.finnhub.core.domain.usecase.watchlist.ObserveWatchlistUseCase
+import com.sypark.finnhub.core.domain.usecase.watchlist.PopularSymbols
 import com.sypark.finnhub.core.domain.usecase.watchlist.RefreshQuotesUseCase
 import com.sypark.finnhub.core.domain.usecase.watchlist.RemoveFromWatchlistUseCase
 import com.sypark.finnhub.core.domain.usecase.watchlist.ReorderWatchlistUseCase
@@ -50,7 +51,7 @@ class WatchlistViewModelTest {
         every { observeWatchlistUseCase() } returns flowOf(
             listOf(WatchlistItem("AAPL", "Apple Inc.", AssetType.STOCK, 0)),
         )
-        every { observeQuotesUseCase(setOf("AAPL")) } returns flowOf(
+        every { observeQuotesUseCase(setOf("AAPL") + PopularSymbols.SYMBOLS) } returns flowOf(
             mapOf("AAPL" to Quote("AAPL", 198.5, 2.3, 1.17, 199.1, 196.8, 197.2, 196.2, 1L, QuoteSource.WEBSOCKET)),
         )
         every { observeConnectionStatusUseCase() } returns flowOf(ConnectionStatus.Connected)
@@ -76,6 +77,25 @@ class WatchlistViewModelTest {
         assertEquals("$198.50", state.quotes.getValue("AAPL").price)
         assertEquals(ConnectionStatus.Connected, state.connectionStatus)
         assertEquals(false, state.isLoading)
+    }
+
+    @Test
+    fun `Load derives popularStocks from the curated symbols, sorted by absolute change desc`() = runTest(dispatcher) {
+        every { observeQuotesUseCase(setOf("AAPL") + PopularSymbols.SYMBOLS) } returns flowOf(
+            mapOf(
+                "AAPL" to Quote("AAPL", 198.5, 2.3, 1.17, 199.1, 196.8, 197.2, 196.2, 1L, QuoteSource.WEBSOCKET),
+                "NVDA" to Quote("NVDA", 900.0, 45.0, 5.26, 905.0, 850.0, 855.0, 855.0, 1L, QuoteSource.WEBSOCKET),
+                "MSFT" to Quote("MSFT", 420.0, -8.4, -1.96, 428.0, 415.0, 428.4, 428.4, 1L, QuoteSource.WEBSOCKET),
+            ),
+        )
+        val viewModel = buildViewModel()
+        viewModel.onIntent(WatchlistIntent.Load)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        // AAPL is both the user's watchlist item and a curated popular symbol, so it
+        // appears in popularStocks too (abs 1.17%), ranked behind NVDA (5.26%) and MSFT (1.96%).
+        val popular = viewModel.state.value.popularStocks
+        assertEquals(listOf("NVDA", "MSFT", "AAPL"), popular.map { it.symbol })
     }
 
     @Test

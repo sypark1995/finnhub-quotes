@@ -4,11 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sypark.finnhub.core.common.AppCoroutineScope
 import com.sypark.finnhub.core.common.AppResult
+import com.sypark.finnhub.core.common.AssetType
 import com.sypark.finnhub.core.domain.model.WatchlistItem
 import com.sypark.finnhub.core.domain.usecase.watchlist.DisconnectMarketUseCase
 import com.sypark.finnhub.core.domain.usecase.watchlist.ObserveConnectionStatusUseCase
 import com.sypark.finnhub.core.domain.usecase.watchlist.ObserveQuotesUseCase
 import com.sypark.finnhub.core.domain.usecase.watchlist.ObserveWatchlistUseCase
+import com.sypark.finnhub.core.domain.usecase.watchlist.PopularSymbols
 import com.sypark.finnhub.core.domain.usecase.watchlist.RefreshQuotesUseCase
 import com.sypark.finnhub.core.domain.usecase.watchlist.RemoveFromWatchlistUseCase
 import com.sypark.finnhub.core.domain.usecase.watchlist.ReorderWatchlistUseCase
@@ -66,15 +68,19 @@ class WatchlistViewModel @Inject constructor(
         observeWatchlistUseCase()
             .flatMapLatest { items ->
                 latestDomainItems = items
-                val symbols = items.map { it.symbol }.toSet()
+                val watchlistSymbols = items.map { it.symbol }.toSet()
+                // Union into a single observeQuotesUseCase subscription: the WebSocket
+                // manager's syncSubscriptions() replaces the *entire* active symbol set on
+                // every call, so two independent subscriptions (watchlist + popular) would
+                // keep stomping on each other's symbols.
                 combine(
-                    observeQuotesUseCase(symbols),
+                    observeQuotesUseCase(watchlistSymbols + PopularSymbols.SYMBOLS),
                     observeConnectionStatusUseCase(),
                 ) { quotes, connectionStatus ->
                     val assetTypeBySymbol = items.associate { it.symbol to it.assetType }
                     WatchlistState(
                         items = items.map { WatchlistItemUi(it.symbol, it.displayName, it.assetType) },
-                        quotes = quotes.mapValues { (symbol, quote) ->
+                        quotes = quotes.filterKeys { it in watchlistSymbols }.mapValues { (symbol, quote) ->
                             QuoteUi(
                                 price = formatPrice(quote.price, assetTypeBySymbol.getValue(symbol)),
                                 changePercent = formatPercent(quote.changePercent),
@@ -86,6 +92,18 @@ class WatchlistViewModel @Inject constructor(
                                 },
                             )
                         },
+                        popularStocks = PopularSymbols.ENTRIES.mapNotNull { entry ->
+                            quotes[entry.symbol]?.let { quote ->
+                                PopularStockUi(
+                                    symbol = entry.symbol,
+                                    displayName = entry.displayName,
+                                    price = formatPrice(quote.price, AssetType.STOCK),
+                                    changePercent = formatPercent(quote.changePercent),
+                                    changeDirection = changeDirectionOf(quote.changePercent),
+                                    changePercentValue = quote.changePercent,
+                                )
+                            }
+                        }.sortedByDescending { kotlin.math.abs(it.changePercentValue) },
                         connectionStatus = connectionStatus,
                         isLoading = false,
                         isRefreshing = _state.value.isRefreshing,
