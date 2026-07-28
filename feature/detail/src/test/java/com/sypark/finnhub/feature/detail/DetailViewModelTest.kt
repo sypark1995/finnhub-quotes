@@ -6,7 +6,6 @@ import com.sypark.finnhub.core.domain.model.Quote
 import com.sypark.finnhub.core.domain.model.QuoteSource
 import com.sypark.finnhub.core.domain.model.StockMetrics
 import com.sypark.finnhub.core.domain.model.StockProfile
-import com.sypark.finnhub.core.domain.usecase.detail.GetCandlesUseCase
 import com.sypark.finnhub.core.domain.usecase.detail.GetCompanyNewsUseCase
 import com.sypark.finnhub.core.domain.usecase.detail.GetPeersUseCase
 import com.sypark.finnhub.core.domain.usecase.detail.GetQuoteUseCase
@@ -41,7 +40,6 @@ class DetailViewModelTest {
     private val getStockProfileUseCase = mockk<GetStockProfileUseCase>()
     private val getStockMetricsUseCase = mockk<GetStockMetricsUseCase>()
     private val getPeersUseCase = mockk<GetPeersUseCase>()
-    private val getCandlesUseCase = mockk<GetCandlesUseCase>()
     private val getCompanyNewsUseCase = mockk<GetCompanyNewsUseCase>()
     private val toggleWatchlistUseCase = mockk<ToggleWatchlistUseCase>()
     private val isInWatchlistUseCase = mockk<IsInWatchlistUseCase>()
@@ -57,7 +55,6 @@ class DetailViewModelTest {
         )
         coEvery { getStockMetricsUseCase("AAPL") } returns AppResult.Success(StockMetrics("AAPL", 32.5, 199.62, 164.08, 6.1, 1.2))
         coEvery { getPeersUseCase("AAPL") } returns AppResult.Success(listOf("MSFT"))
-        coEvery { getCandlesUseCase("AAPL", "D", any(), any()) } returns AppResult.Success(emptyList())
         coEvery { getCompanyNewsUseCase("AAPL", any(), any()) } returns AppResult.Success(emptyList())
         coEvery { isInWatchlistUseCase("AAPL") } returns false
         every { observeQuotesUseCase(setOf("AAPL")) } returns flowOf(emptyMap())
@@ -69,7 +66,7 @@ class DetailViewModelTest {
     private fun buildViewModel(savedState: Map<String, String> = mapOf("symbol" to "AAPL")) = DetailViewModel(
         SavedStateHandle(savedState),
         getQuoteUseCase, observeQuotesUseCase, getStockProfileUseCase, getStockMetricsUseCase,
-        getPeersUseCase, getCandlesUseCase, getCompanyNewsUseCase, toggleWatchlistUseCase, isInWatchlistUseCase,
+        getPeersUseCase, getCompanyNewsUseCase, toggleWatchlistUseCase, isInWatchlistUseCase,
     )
 
     @Test
@@ -128,7 +125,6 @@ class DetailViewModelTest {
             StockMetrics("EURUSD", null, null, null, null, null),
         )
         coEvery { getPeersUseCase("EURUSD") } returns AppResult.Success(emptyList())
-        coEvery { getCandlesUseCase("EURUSD", "D", any(), any()) } returns AppResult.Success(emptyList())
         coEvery { getCompanyNewsUseCase("EURUSD", any(), any()) } returns AppResult.Success(emptyList())
         coEvery { isInWatchlistUseCase("EURUSD") } returns false
         every { observeQuotesUseCase(setOf("EURUSD")) } returns flowOf(emptyMap())
@@ -146,22 +142,8 @@ class DetailViewModelTest {
         viewModel.onIntent(DetailIntent.Load)
         dispatcher.scheduler.advanceUntilIdle()
 
-        viewModel.onIntent(DetailIntent.SelectTab(DetailTab.PROFILE))
+        viewModel.onIntent(DetailIntent.SelectTab(DetailTab.NEWS))
 
-        assertEquals(DetailTab.PROFILE, viewModel.state.value.selectedTab)
-    }
-
-    @Test
-    fun `ChangeResolution refetches candles at the new resolution`() = runTest(dispatcher) {
-        coEvery { getCandlesUseCase("AAPL", "W", any(), any()) } returns AppResult.Success(emptyList())
-        val viewModel = buildViewModel()
-        viewModel.onIntent(DetailIntent.Load)
-        dispatcher.scheduler.advanceUntilIdle()
-
-        viewModel.onIntent(DetailIntent.ChangeResolution(ChartResolution.WEEK))
-        dispatcher.scheduler.advanceUntilIdle()
-
-        assertEquals(ChartResolution.WEEK, viewModel.state.value.chartResolution)
-        io.mockk.coVerify { getCandlesUseCase("AAPL", "W", any(), any()) }
+        assertEquals(DetailTab.NEWS, viewModel.state.value.selectedTab)
     }
 }

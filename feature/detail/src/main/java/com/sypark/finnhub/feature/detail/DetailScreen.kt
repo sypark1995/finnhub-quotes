@@ -132,7 +132,6 @@ fun DetailScreen(
 
             Crossfade(targetState = state.selectedTab, label = "detailTab") { tab ->
                 when (tab) {
-                    DetailTab.CHART -> ChartTab(state = state, onIntent = onIntent)
                     DetailTab.PROFILE -> ProfileTab(state = state)
                     DetailTab.NEWS -> NewsTab(state = state)
                     DetailTab.PEERS -> PeersTab(state = state, onNavigateToPeerDetail = onNavigateToPeerDetail)
@@ -143,48 +142,9 @@ fun DetailScreen(
 }
 
 private fun tabLabel(tab: DetailTab): String = when (tab) {
-    DetailTab.CHART -> "차트"
     DetailTab.PROFILE -> "프로필"
     DetailTab.NEWS -> "뉴스"
     DetailTab.PEERS -> "Peers"
-}
-
-// Minimal stubs so this task compiles standalone — Tasks 47–50 each *modify* this file,
-// replacing exactly one of these four with its real implementation.
-@Composable
-private fun ChartTab(state: DetailState, onIntent: (DetailIntent) -> Unit) {
-    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
-    val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-    val chartHeight = if (isLandscape) 400.dp else 280.dp
-    val chartPadding = if (isLandscape) 24.dp else Spacing.space4
-    Column {
-        com.sypark.finnhub.core.ui.chart.CandlestickChart(
-            candles = state.candles.map {
-                com.sypark.finnhub.core.ui.chart.CandlestickChartEntry(it.timestamp, it.open, it.high, it.low, it.close)
-            },
-            modifier = Modifier.padding(horizontal = chartPadding),
-            height = chartHeight,
-        )
-        androidx.compose.foundation.lazy.LazyRow(
-            modifier = Modifier.padding(horizontal = Spacing.space4, vertical = Spacing.space2),
-            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(Spacing.space2),
-        ) {
-            items(ChartResolution.entries) { resolution ->
-                FilterPill(
-                    label = resolutionLabel(resolution),
-                    selected = resolution == state.chartResolution,
-                    onClick = { onIntent(DetailIntent.ChangeResolution(resolution)) },
-                )
-            }
-        }
-    }
-}
-
-private fun resolutionLabel(resolution: ChartResolution): String = when (resolution) {
-    ChartResolution.MINUTE_5 -> "5분"
-    ChartResolution.HOUR_1 -> "1시간"
-    ChartResolution.DAY -> "1D"
-    ChartResolution.WEEK -> "1W"
 }
 
 @Composable

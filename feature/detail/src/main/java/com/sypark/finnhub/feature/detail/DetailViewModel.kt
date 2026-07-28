@@ -6,7 +6,6 @@ import androidx.lifecycle.viewModelScope
 import com.sypark.finnhub.core.common.AppResult
 import com.sypark.finnhub.core.common.AssetType
 import com.sypark.finnhub.core.domain.model.WatchlistItem
-import com.sypark.finnhub.core.domain.usecase.detail.GetCandlesUseCase
 import com.sypark.finnhub.core.domain.usecase.detail.GetCompanyNewsUseCase
 import com.sypark.finnhub.core.domain.usecase.detail.GetPeersUseCase
 import com.sypark.finnhub.core.domain.usecase.detail.GetQuoteUseCase
@@ -41,7 +40,6 @@ class DetailViewModel @Inject constructor(
     private val getStockProfileUseCase: GetStockProfileUseCase,
     private val getStockMetricsUseCase: GetStockMetricsUseCase,
     private val getPeersUseCase: GetPeersUseCase,
-    private val getCandlesUseCase: GetCandlesUseCase,
     private val getCompanyNewsUseCase: GetCompanyNewsUseCase,
     private val toggleWatchlistUseCase: ToggleWatchlistUseCase,
     private val isInWatchlistUseCase: IsInWatchlistUseCase,
@@ -62,7 +60,6 @@ class DetailViewModel @Inject constructor(
         when (intent) {
             DetailIntent.Load -> { load(); observeLiveQuote() }
             is DetailIntent.SelectTab -> _state.value = _state.value.copy(selectedTab = intent.tab)
-            is DetailIntent.ChangeResolution -> changeResolution(intent.resolution)
             DetailIntent.ToggleWatchlist -> toggleWatchlist()
             DetailIntent.CreateAlert -> _effect.tryEmit(DetailEffect.NavigateToAlertCreate(symbol))
         }
@@ -78,12 +75,11 @@ class DetailViewModel @Inject constructor(
             val profileDeferred = async { getStockProfileUseCase(symbol) }
             val metricsDeferred = async { getStockMetricsUseCase(symbol) }
             val peersDeferred = async { getPeersUseCase(symbol) }
-            val candlesDeferred = async { getCandlesUseCase(symbol, _state.value.chartResolution.apiValue, from, to) }
             val newsDeferred = async {
                 getCompanyNewsUseCase(symbol, isoDate(from * 1000), isoDate(to * 1000))
             }
             val isInWatchlistDeferred = async { isInWatchlistUseCase(symbol) }
-            awaitAll(quoteDeferred, profileDeferred, metricsDeferred, peersDeferred, candlesDeferred, newsDeferred, isInWatchlistDeferred)
+            awaitAll(quoteDeferred, profileDeferred, metricsDeferred, peersDeferred, newsDeferred, isInWatchlistDeferred)
 
             val quoteResult = quoteDeferred.await()
 
@@ -101,23 +97,10 @@ class DetailViewModel @Inject constructor(
                     )
                 },
                 peers = (peersDeferred.await() as? AppResult.Success)?.data ?: emptyList(),
-                candles = (candlesDeferred.await() as? AppResult.Success)?.data?.map { CandleUi(it.timestamp, it.open, it.high, it.low, it.close) } ?: emptyList(),
                 news = (newsDeferred.await() as? AppResult.Success)?.data?.map { NewsUi(it.headline, it.source, it.url, it.imageUrl, it.datetime) } ?: emptyList(),
                 isInWatchlist = isInWatchlistDeferred.await(),
                 error = (quoteResult as? AppResult.Error)?.error,
             )
-        }
-    }
-
-    private fun changeResolution(resolution: ChartResolution) {
-        _state.value = _state.value.copy(chartResolution = resolution)
-        viewModelScope.launch {
-            val to = System.currentTimeMillis() / 1000
-            val from = to - TimeUnit.DAYS.toSeconds(90)
-            val result = getCandlesUseCase(symbol, resolution.apiValue, from, to)
-            if (result is AppResult.Success) {
-                _state.value = _state.value.copy(candles = result.data.map { CandleUi(it.timestamp, it.open, it.high, it.low, it.close) })
-            }
         }
     }
 
