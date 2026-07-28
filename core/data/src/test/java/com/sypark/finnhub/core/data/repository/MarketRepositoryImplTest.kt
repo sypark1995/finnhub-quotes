@@ -214,6 +214,43 @@ class MarketRepositoryImplTest {
     }
 
     @Test
+    fun `observeQuotes seeds an uncached symbol via one-shot REST fetch and upserts it to the cache`() = kotlinx.coroutines.runBlocking {
+        // seedJob runs on the production AppDispatchers().io (real Dispatchers.IO), so this uses
+        // runBlocking + CompletableDeferred rather than runTest's virtual time, matching the
+        // synchronization approach already used below for fallbackJob's real-dispatcher race.
+        every { quoteCacheDao.observeAll() } returns flowOf(emptyList())
+        every { webSocketManager.tradeUpdates } returns MutableSharedFlow()
+        val fetched = kotlinx.coroutines.CompletableDeferred<Unit>()
+        coEvery { apiService.getQuote("NVDA") } coAnswers {
+            fetched.complete(Unit)
+            QuoteDto(900.0, 45.0, 5.26, 905.0, 850.0, 855.0, 855.0, 1L)
+        }
+
+        val job = launch { repository.observeQuotes(setOf("NVDA")).collect { } }
+        kotlinx.coroutines.withTimeout(5_000) { fetched.await() }
+        job.cancel()
+
+        coVerify(exactly = 1) { apiService.getQuote("NVDA") }
+        coVerify { quoteCacheDao.upsert(match { it.symbol == "NVDA" && it.price == 900.0 }) }
+    }
+
+    @Test
+    fun `observeQuotes does not re-fetch a symbol that already has a cache entry`() = runTest {
+        val cacheFlow = MutableStateFlow(
+            listOf(QuoteCacheEntity("AAPL", 198.5, 2.3, 1.17, 199.1, 196.8, 197.2, 196.2, updatedAt = 1L)),
+        )
+        every { quoteCacheDao.observeAll() } returns cacheFlow
+        every { webSocketManager.tradeUpdates } returns MutableSharedFlow()
+
+        repository.observeQuotes(setOf("AAPL")).test {
+            awaitItem()
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        coVerify(exactly = 0) { apiService.getQuote("AAPL") }
+    }
+
+    @Test
     fun `observeQuotes cancels the cache collector job when the collecting coroutine is cancelled`() = runTest {
         val cacheCollecting = MutableStateFlow(false)
         val cacheBacking = MutableStateFlow(

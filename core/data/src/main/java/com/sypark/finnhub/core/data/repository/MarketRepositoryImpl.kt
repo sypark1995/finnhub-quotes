@@ -66,6 +66,18 @@ class MarketRepositoryImpl @Inject constructor(
                 }
             }
         }
+        // One-shot REST seed for symbols with no cache entry yet: while connected, live quotes
+        // only arrive via WebSocket trade prints, which can take a long time (or never happen)
+        // for a thinly-traded symbol. Without this, such symbols never appear until a trade
+        // fires or the connection drops. Upserting into the cache lets cacheJob's existing
+        // Room Flow collector pick it up naturally.
+        val seedJob = launch(dispatchers.io) {
+            val alreadyCached = quoteCacheDao.observeAll().first().map { it.symbol }.toSet()
+            (symbols - alreadyCached).forEach { symbol ->
+                val dto = runCatching { apiService.getQuote(symbol) }.getOrNull() ?: return@forEach
+                quoteCacheDao.upsert(dto.toDomain(symbol).toCacheEntity())
+            }
+        }
         val tradeJob = launch(dispatchers.io) {
             webSocketManager.tradeUpdates.collect { trade ->
                 if (trade.symbol !in symbols) return@collect
@@ -102,6 +114,7 @@ class MarketRepositoryImpl @Inject constructor(
             cacheJob.cancel()
             tradeJob.cancel()
             fallbackJob.cancel()
+            seedJob.cancel()
         }
     }.flowOn(dispatchers.io)
 
