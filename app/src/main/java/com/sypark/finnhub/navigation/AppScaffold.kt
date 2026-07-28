@@ -14,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import com.sypark.finnhub.core.ui.component.AppBottomBar
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -69,9 +70,12 @@ private fun NavHostController.navigateToTab(tab: com.sypark.finnhub.core.ui.comp
         com.sypark.finnhub.core.ui.component.BottomNavTab.ALERTS -> Route.Alerts
         com.sypark.finnhub.core.ui.component.BottomNavTab.SETTINGS -> Route.Settings
     }
+    // saveState/restoreState combined with popUpTo(startDestination) silently no-ops navigation
+    // back to the graph's type-safe-route start destination (confirmed via currentBackStackEntry
+    // logging: navigate() ran without throwing but left the back stack completely unchanged).
+    // Dropping save/restore state avoids the bug; each tab simply reloads on re-entry.
     navigate(route) {
-        popUpTo(Route.Watchlist) { saveState = true }
+        popUpTo(graph.findStartDestination().id)
         launchSingleTop = true
-        restoreState = true
     }
 }
