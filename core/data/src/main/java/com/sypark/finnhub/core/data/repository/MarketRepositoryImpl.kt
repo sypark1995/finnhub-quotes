@@ -6,10 +6,8 @@ import com.sypark.finnhub.core.data.mapper.mapNetworkError
 import com.sypark.finnhub.core.data.mapper.toCacheEntity
 import com.sypark.finnhub.core.data.mapper.toDomain
 import com.sypark.finnhub.core.data.util.CacheTtl
-import com.sypark.finnhub.core.database.dao.CandleCacheDao
 import com.sypark.finnhub.core.database.dao.QuoteCacheDao
 import com.sypark.finnhub.core.datastore.UserPreferencesDataSource
-import com.sypark.finnhub.core.domain.model.Candle
 import com.sypark.finnhub.core.domain.model.ConnectionStatus
 import com.sypark.finnhub.core.domain.model.EarningsEvent
 import com.sypark.finnhub.core.domain.model.News
@@ -39,7 +37,6 @@ class MarketRepositoryImpl @Inject constructor(
     private val apiService: FinnhubApiService,
     private val webSocketManager: FinnhubWebSocketManager,
     private val quoteCacheDao: QuoteCacheDao,
-    private val candleCacheDao: CandleCacheDao,
     private val preferencesDataSource: UserPreferencesDataSource,
     private val dispatchers: AppDispatchers,
     private val nowProvider: () -> Long = { System.currentTimeMillis() },
@@ -150,29 +147,6 @@ class MarketRepositoryImpl @Inject constructor(
             AppResult.Error(mapNetworkError(throwable))
         }
     }
-
-    override suspend fun getCandles(symbol: String, resolution: String, from: Long, to: Long): AppResult<List<Candle>> =
-        withContext(dispatchers.io) {
-            val now = nowProvider()
-            val lastFetchedAt = candleCacheDao.getLatestFetchedAt(symbol, resolution)
-            if (CacheTtl.isFresh(lastFetchedAt, now, CacheTtl.CANDLE_TTL_MILLIS)) {
-                return@withContext AppResult.Success(candleCacheDao.getCandles(symbol, resolution).map { it.toDomain() })
-            }
-            try {
-                val isForex = symbol.contains(":") && symbol.contains("_")
-                val dto = if (isForex) {
-                    apiService.getForexCandles(symbol, resolution, from, to)
-                } else {
-                    apiService.getStockCandles(symbol, resolution, from, to)
-                }
-                val candles = dto.toDomain()
-                candleCacheDao.insertAll(candles.map { it.toCacheEntity(symbol, resolution, now) })
-                AppResult.Success(candles)
-            } catch (throwable: Throwable) {
-                val cached = candleCacheDao.getCandles(symbol, resolution).map { it.toDomain() }
-                if (cached.isNotEmpty()) AppResult.Success(cached) else AppResult.Error(mapNetworkError(throwable))
-            }
-        }
 
     override suspend fun getStockProfile(symbol: String): AppResult<StockProfile> = withContext(dispatchers.io) {
         try {

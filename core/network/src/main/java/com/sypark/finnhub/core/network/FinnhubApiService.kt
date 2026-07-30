@@ -1,6 +1,5 @@
 package com.sypark.finnhub.core.network
 
-import com.sypark.finnhub.core.network.dto.CandleResponseDto
 import com.sypark.finnhub.core.network.dto.CompanyNewsDto
 import com.sypark.finnhub.core.network.dto.EarningsCalendarResponseDto
 import com.sypark.finnhub.core.network.dto.QuoteDto
@@ -16,22 +15,6 @@ interface FinnhubApiService {
 
     @GET("search")
     suspend fun search(@Query("q") query: String): SearchResponseDto
-
-    @GET("stock/candle")
-    suspend fun getStockCandles(
-        @Query("symbol") symbol: String,
-        @Query("resolution") resolution: String,
-        @Query("from") from: Long,
-        @Query("to") to: Long,
-    ): CandleResponseDto
-
-    @GET("forex/candle")
-    suspend fun getForexCandles(
-        @Query("symbol") symbol: String,
-        @Query("resolution") resolution: String,
-        @Query("from") from: Long,
-        @Query("to") to: Long,
-    ): CandleResponseDto
 
     @GET("stock/profile2")
     suspend fun getStockProfile(@Query("symbol") symbol: String): StockProfileDto

@@ -41,9 +41,8 @@ class MarketRepositoryImplTest {
     private val apiService = mockk<FinnhubApiService>()
     private val webSocketManager = mockk<FinnhubWebSocketManager>(relaxUnitFun = true)
     private val quoteCacheDao = mockk<QuoteCacheDao>(relaxUnitFun = true)
-    private val candleCacheDao = mockk<com.sypark.finnhub.core.database.dao.CandleCacheDao>(relaxUnitFun = true)
     private val preferencesDataSource = mockk<com.sypark.finnhub.core.datastore.UserPreferencesDataSource>()
-    private val repository = MarketRepositoryImpl(apiService, webSocketManager, quoteCacheDao, candleCacheDao, preferencesDataSource, AppDispatchers()) { 10_000L }
+    private val repository = MarketRepositoryImpl(apiService, webSocketManager, quoteCacheDao, preferencesDataSource, AppDispatchers()) { 10_000L }
 
     init {
         // Task 68's fallbackJob reads these on every observeQuotes call. Defaulting to
@@ -324,32 +323,6 @@ class MarketRepositoryImplTest {
     fun `search returns an error AppResult when the call fails`() = runTest {
         coEvery { apiService.search("AAPL") } throws IOException("offline")
         assertTrue(repository.search("AAPL") is AppResult.Error)
-    }
-
-    @Test
-    fun `getCandles fetches from REST and caches when the cache is stale`() = runTest {
-        coEvery { candleCacheDao.getLatestFetchedAt("AAPL", "D") } returns null
-        coEvery { apiService.getStockCandles("AAPL", "D", 1, 2) } returns com.sypark.finnhub.core.network.dto.CandleResponseDto(
-            c = listOf(198.5), h = listOf(199.1), l = listOf(196.8), o = listOf(197.2), s = "ok", t = listOf(1L), v = listOf(1000L),
-        )
-
-        val result = repository.getCandles("AAPL", "D", 1, 2)
-
-        assertTrue(result is AppResult.Success)
-        assertEquals(1, (result as AppResult.Success).data.size)
-    }
-
-    @Test
-    fun `getCandles reads from the cache without a REST call when fresh`() = runTest {
-        coEvery { candleCacheDao.getLatestFetchedAt("AAPL", "D") } returns 9_800L
-        coEvery { candleCacheDao.getCandles("AAPL", "D") } returns listOf(
-            com.sypark.finnhub.core.database.entity.CandleCacheEntity(symbol = "AAPL", resolution = "D", timestamp = 1L, open = 197.2, high = 199.1, low = 196.8, close = 198.5, volume = 1000L, fetchedAt = 9_800L),
-        )
-
-        val result = repository.getCandles("AAPL", "D", 1, 2)
-
-        assertTrue(result is AppResult.Success)
-        io.mockk.coVerify(exactly = 0) { apiService.getStockCandles(any(), any(), any(), any()) }
     }
 
     @Test

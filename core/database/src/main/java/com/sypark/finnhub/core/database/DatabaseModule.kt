@@ -25,11 +25,13 @@ object DatabaseModule {
             // v1-v3 to safely validate a hand-written migration against, and rewriting one blind
             // would be undetectable guesswork for versions nobody has installed.
             //
-            // From v4 onward, AppDatabase.exportSchema = true and a v4 schema snapshot is committed
-            // at core/database/schemas/.../4.json -- any FUTURE bump (v4 -> v5+, e.g. before a real
-            // release ships) MUST add a real Migration(4, 5) tested with
+            // From v4 onward, AppDatabase.exportSchema = true and schema snapshots are committed
+            // at core/database/schemas/... -- any FUTURE bump MUST add a real Migration tested with
             // androidx.room:room-testing's MigrationTestHelper (already a test dependency in this
-            // module), not another destructive-fallback shortcut.
+            // module), not another destructive-fallback shortcut. v4 -> v5 (drops candle_cache) is
+            // the first such migration; fallbackToDestructiveMigration stays as the safety net for
+            // pre-v4 installs, which have no exported schema to migrate from.
+            .addMigrations(MIGRATION_4_5)
             .fallbackToDestructiveMigration()
             .build()
 
@@ -42,11 +44,6 @@ object DatabaseModule {
     @Singleton
     fun provideQuoteCacheDao(database: AppDatabase): com.sypark.finnhub.core.database.dao.QuoteCacheDao =
         database.quoteCacheDao()
-
-    @Provides
-    @Singleton
-    fun provideCandleCacheDao(database: AppDatabase): com.sypark.finnhub.core.database.dao.CandleCacheDao =
-        database.candleCacheDao()
 
     @Provides
     @Singleton
