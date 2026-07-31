@@ -87,7 +87,14 @@ class DetailViewModel @Inject constructor(
                 isLoading = false,
                 quote = (quoteResult as? AppResult.Success)?.data?.toQuoteUi(assetType),
                 profile = (profileDeferred.await() as? AppResult.Success)?.data?.let {
-                    StockProfileUi(it.name, it.exchange, it.industry, it.logoUrl, "$${formatLargeNumber(it.marketCapitalization)}", it.webUrl)
+                    // Finnhub returns marketCapitalization already expressed in millions of
+                    // dollars (confirmed via direct API call: AAPL's value ~4,894,708 means
+                    // $4.89T, not $4.89M) -- formatLargeNumber expects a raw dollar figure, so
+                    // scale up first. Without this, every market cap displayed 1,000,000x too
+                    // small (AAPL showed "$4.9M" instead of "$4.9T"; smaller caps like DELL's
+                    // ~$253.7B showed as a bare unsuffixed "$253724.2").
+                    val marketCapDollars = it.marketCapitalization * 1_000_000
+                    StockProfileUi(it.name, it.exchange, it.industry, it.logoUrl, "$${formatLargeNumber(marketCapDollars)}", it.webUrl)
                 },
                 metrics = (metricsDeferred.await() as? AppResult.Success)?.data?.let {
                     StockMetricsUi(

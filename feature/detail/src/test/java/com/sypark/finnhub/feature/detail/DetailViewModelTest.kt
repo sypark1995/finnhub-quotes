@@ -51,7 +51,10 @@ class DetailViewModelTest {
             Quote("AAPL", 198.5, 2.3, 1.17, 199.1, 196.8, 197.2, 196.2, 1L, QuoteSource.REST),
         )
         coEvery { getStockProfileUseCase("AAPL") } returns AppResult.Success(
-            StockProfile("AAPL", "Apple Inc.", "NASDAQ", "Technology", "https://x", 3_010_000_000_000.0, "https://apple.com", "USD"),
+            // Finnhub's real marketCapitalization is expressed in millions (confirmed via direct
+            // API call), e.g. 3_010_000.0 here means $3.01T, not $3.01M -- see DetailViewModel's
+            // marketCapDollars scaling comment.
+            StockProfile("AAPL", "Apple Inc.", "NASDAQ", "Technology", "https://x", 3_010_000.0, "https://apple.com", "USD"),
         )
         coEvery { getStockMetricsUseCase("AAPL") } returns AppResult.Success(StockMetrics("AAPL", 32.5, 199.62, 164.08, 6.1, 1.2))
         coEvery { getPeersUseCase("AAPL") } returns AppResult.Success(listOf("MSFT"))
@@ -79,6 +82,7 @@ class DetailViewModelTest {
         assertEquals("AAPL", state.symbol)
         assertEquals("$198.50", state.quote?.price)
         assertEquals("Apple Inc.", state.profile?.name)
+        assertEquals("$3.0T", state.profile?.marketCapText)
         assertEquals(listOf("MSFT"), state.peers)
         assertEquals(false, state.isLoading)
     }
