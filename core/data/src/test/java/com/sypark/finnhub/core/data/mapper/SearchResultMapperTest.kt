@@ -14,8 +14,17 @@ class SearchResultMapperTest {
     }
 
     @Test
-    fun `an EXCHANGE_BASE_QUOTE symbol maps to FOREX`() {
-        val dto = SearchResultDto("Euro / US Dollar", "EUR/USD", "OANDA:EUR_USD", "Forex")
+    fun `Finnhub's real FX search response (type FX, slash symbol) maps to FOREX`() {
+        // Confirmed against the live API: searching "OANDA:EUR_USD" returns
+        // {"symbol":"EUR/USD","type":"FX"} -- not the "OANDA:EUR_USD"-style symbol this mapper
+        // used to require, which meant no real search result ever classified as FOREX.
+        val dto = SearchResultDto("Oanda EUR/USD", "EUR/USD", "EUR/USD", "FX")
+        assertEquals(AssetType.FOREX, dto.toDomain().assetType)
+    }
+
+    @Test
+    fun `a Forex type string also maps to FOREX`() {
+        val dto = SearchResultDto("Euro / US Dollar", "EUR/USD", "EUR/USD", "Forex")
         assertEquals(AssetType.FOREX, dto.toDomain().assetType)
     }
 

@@ -143,7 +143,10 @@ private fun SearchResults(state: SearchState, onIntent: (SearchIntent) -> Unit) 
             onCtaClick = null,
         )
         else -> LazyColumn {
-            itemsIndexed(items = state.results, key = { _, result -> result.symbol }) { index, result ->
+            // Finnhub's /search can legitimately return the same symbol twice in one response
+            // (confirmed via direct API call, e.g. "EUR" returns "EUROB.AT" twice) -- a plain
+            // result.symbol key crashes LazyColumn with a duplicate-key IllegalArgumentException.
+            itemsIndexed(items = state.results, key = { index, result -> "${result.symbol}_$index" }) { index, result ->
                 StaggeredListItem(index = index) {
                     SearchResultRow(
                         result = result,
