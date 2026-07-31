@@ -52,7 +52,7 @@ fun AppNavHost(navController: NavHostController) {
         composable<Route.Alerts> {
             AppScaffold(navController = navController, currentRoute = Route.Alerts) { padding ->
                 com.sypark.finnhub.feature.alert.AlertListRoute(
-                    onNavigateToCreate = { navController.navigate(Route.AlertCreate()) },
+                    onNavigateToSearch = { navController.navigate(Route.Search) },
                     modifier = androidx.compose.ui.Modifier.padding(padding),
                 )
             }

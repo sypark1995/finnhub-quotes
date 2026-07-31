@@ -16,5 +16,8 @@ sealed interface AlertListIntent {
 }
 
 sealed interface AlertListEffect {
-    data object NavigateToCreate : AlertListEffect
+    // "알림 추가" has no symbol picker of its own (a price alert needs a symbol), so it routes
+    // through Search first -- matching the empty state's own copy: "관심종목에서 알림을 추가해 보세요".
+    // From a search result / Detail screen, the bell icon opens AlertCreate with a real symbol.
+    data object NavigateToSearch : AlertListEffect
 }

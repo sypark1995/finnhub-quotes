@@ -34,7 +34,7 @@ import kotlinx.coroutines.flow.collectLatest
 
 @Composable
 fun AlertListRoute(
-    onNavigateToCreate: () -> Unit,
+    onNavigateToSearch: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: AlertListViewModel = hiltViewModel(),
 ) {
@@ -44,7 +44,7 @@ fun AlertListRoute(
     LaunchedEffect(viewModel) {
         viewModel.effect.collectLatest { effect ->
             when (effect) {
-                AlertListEffect.NavigateToCreate -> onNavigateToCreate()
+                AlertListEffect.NavigateToSearch -> onNavigateToSearch()
             }
         }
     }

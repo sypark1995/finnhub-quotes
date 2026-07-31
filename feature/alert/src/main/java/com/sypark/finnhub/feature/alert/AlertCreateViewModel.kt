@@ -39,6 +39,13 @@ class AlertCreateViewModel @Inject constructor(
     }
 
     private fun save() {
+        // Defense in depth: every real entry point passes a symbol nav arg (Detail's bell icon,
+        // a search result), but an empty/malformed one (e.g. a bad deep link) must not silently
+        // create an alert with no symbol -- there'd be no way to tell what it's for afterward.
+        if (symbol.isBlank()) {
+            _effect.tryEmit(AlertCreateEffect.ShowSnackbar("종목을 찾을 수 없습니다"))
+            return
+        }
         val price = _state.value.targetPriceInput.toDoubleOrNull()
         if (price == null || price <= 0.0) {
             _state.value = _state.value.copy(priceError = "목표가는 0보다 커야 합니다")

@@ -44,6 +44,19 @@ class AlertCreateViewModelTest {
     }
 
     @Test
+    fun `Save with a blank symbol shows a snackbar and does not call the use case`() = runTest(dispatcher) {
+        val viewModel = AlertCreateViewModel(SavedStateHandle(emptyMap()), createAlertUseCase)
+        viewModel.onIntent(AlertCreateIntent.TargetPriceChanged("210.0"))
+
+        viewModel.effect.test {
+            viewModel.onIntent(AlertCreateIntent.Save)
+            val effect = awaitItem()
+            assertEquals(true, effect is AlertCreateEffect.ShowSnackbar)
+        }
+        io.mockk.coVerify(exactly = 0) { createAlertUseCase(any(), any(), any()) }
+    }
+
+    @Test
     fun `Save with a valid price calls the use case and emits Dismiss`() = runTest(dispatcher) {
         coEvery { createAlertUseCase("AAPL", 210.0, com.sypark.finnhub.core.common.AlertCondition.ABOVE) } returns AppResult.Success(1L)
         val viewModel = buildViewModel()

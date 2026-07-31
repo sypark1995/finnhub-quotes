@@ -44,7 +44,7 @@ class AlertListViewModel @Inject constructor(
             AlertListIntent.Load -> load()
             is AlertListIntent.ToggleEnabled -> toggleEnabled(intent.id, intent.enabled)
             is AlertListIntent.Delete -> viewModelScope.launch { deleteAlertUseCase(intent.id) }
-            AlertListIntent.OpenCreate -> _effect.tryEmit(AlertListEffect.NavigateToCreate)
+            AlertListIntent.OpenCreate -> _effect.tryEmit(AlertListEffect.NavigateToSearch)
         }
     }
 
