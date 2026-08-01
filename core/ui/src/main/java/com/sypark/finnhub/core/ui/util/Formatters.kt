@@ -1,6 +1,5 @@
 package com.sypark.finnhub.core.ui.util
 
-import com.sypark.finnhub.core.common.AssetType
 import com.sypark.finnhub.core.ui.model.ChangeDirection
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
@@ -9,13 +8,9 @@ import kotlin.math.abs
 
 private val usSymbols = DecimalFormatSymbols(Locale.US)
 private val usdFormat = DecimalFormat("$#,##0.00", usSymbols)
-private val fxFormat = DecimalFormat("0.0000", usSymbols)
 private val percentFormat = DecimalFormat("+0.00%;-0.00%", usSymbols)
 
-fun formatPrice(value: Double, assetType: AssetType): String = when (assetType) {
-    AssetType.STOCK, AssetType.CRYPTO -> usdFormat.format(value)
-    AssetType.FOREX -> fxFormat.format(value)
-}
+fun formatPrice(value: Double): String = usdFormat.format(value)
 
 fun formatPercent(value: Double): String {
     // DecimalFormat's +/- pattern above already signs everything except exact zero,

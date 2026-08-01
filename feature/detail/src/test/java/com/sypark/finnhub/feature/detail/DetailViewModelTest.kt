@@ -115,29 +115,34 @@ class DetailViewModelTest {
     }
 
     @Test
-    fun `Load resolves assetType from the assetTypeName nav arg instead of the symbol heuristic`() = runTest(dispatcher) {
-        // "EURUSD" has neither ":" nor "_", so assetTypeFromSymbol would default it to STOCK.
-        // Passing assetTypeName = FOREX via SavedStateHandle must win over that heuristic guess —
-        // observable via formatPrice: STOCK/CRYPTO render "$#,##0.00", FOREX renders plain "0.0000".
-        coEvery { getQuoteUseCase("EURUSD") } returns AppResult.Success(
-            Quote("EURUSD", 1.2345, 0.001, 0.08, 1.235, 1.23, 1.232, 1.231, 1L, QuoteSource.REST),
+    fun `Load resolves assetType from the assetTypeName nav arg instead of defaulting to STOCK`() = runTest(dispatcher) {
+        // With no assetTypeName nav arg, assetType defaults to STOCK. Passing
+        // assetTypeName = CRYPTO via SavedStateHandle must win over that default -- observable
+        // via the WatchlistItem passed to toggleWatchlistUseCase when the user favorites it.
+        coEvery { getQuoteUseCase("BTCUSDT") } returns AppResult.Success(
+            Quote("BTCUSDT", 65432.10, 500.0, 0.77, 66000.0, 64000.0, 64932.10, 64932.10, 1L, QuoteSource.REST),
         )
-        coEvery { getStockProfileUseCase("EURUSD") } returns AppResult.Success(
-            StockProfile("EURUSD", "Euro / US Dollar", "", "", "", 0.0, "", "USD"),
+        coEvery { getStockProfileUseCase("BTCUSDT") } returns AppResult.Success(
+            StockProfile("BTCUSDT", "Bitcoin", "", "", "", 0.0, "", "USD"),
         )
-        coEvery { getStockMetricsUseCase("EURUSD") } returns AppResult.Success(
-            StockMetrics("EURUSD", null, null, null, null, null),
+        coEvery { getStockMetricsUseCase("BTCUSDT") } returns AppResult.Success(
+            StockMetrics("BTCUSDT", null, null, null, null, null),
         )
-        coEvery { getPeersUseCase("EURUSD") } returns AppResult.Success(emptyList())
-        coEvery { getCompanyNewsUseCase("EURUSD", any(), any()) } returns AppResult.Success(emptyList())
-        coEvery { isInWatchlistUseCase("EURUSD") } returns false
-        every { observeQuotesUseCase(setOf("EURUSD")) } returns flowOf(emptyMap())
+        coEvery { getPeersUseCase("BTCUSDT") } returns AppResult.Success(emptyList())
+        coEvery { getCompanyNewsUseCase("BTCUSDT", any(), any()) } returns AppResult.Success(emptyList())
+        coEvery { isInWatchlistUseCase("BTCUSDT") } returns false
+        every { observeQuotesUseCase(setOf("BTCUSDT")) } returns flowOf(emptyMap())
+        coEvery { toggleWatchlistUseCase(any()) } returns AppResult.Success(Unit)
 
-        val viewModel = buildViewModel(mapOf("symbol" to "EURUSD", "assetTypeName" to "FOREX"))
+        val viewModel = buildViewModel(mapOf("symbol" to "BTCUSDT", "assetTypeName" to "CRYPTO"))
         viewModel.onIntent(DetailIntent.Load)
         dispatcher.scheduler.advanceUntilIdle()
+        viewModel.onIntent(DetailIntent.ToggleWatchlist)
+        dispatcher.scheduler.advanceUntilIdle()
 
-        assertEquals("1.2345", viewModel.state.value.quote?.price)
+        io.mockk.coVerify {
+            toggleWatchlistUseCase(match { it.assetType == com.sypark.finnhub.core.common.AssetType.CRYPTO })
+        }
     }
 
     @Test

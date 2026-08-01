@@ -64,7 +64,7 @@ private fun EmptyStatePreview() {
     FinnhubQuotesTheme {
         EmptyState(
             title = "아직 관심종목이 없어요",
-            description = "종목이나 환율을 검색해 추가해 보세요",
+            description = "종목을 검색해 추가해 보세요",
             ctaLabel = "종목 검색",
             onCtaClick = {},
         )

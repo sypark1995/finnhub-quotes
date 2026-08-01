@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sypark.finnhub.core.common.AppCoroutineScope
 import com.sypark.finnhub.core.common.AppResult
-import com.sypark.finnhub.core.common.AssetType
 import com.sypark.finnhub.core.domain.model.WatchlistItem
 import com.sypark.finnhub.core.domain.usecase.watchlist.DisconnectMarketUseCase
 import com.sypark.finnhub.core.domain.usecase.watchlist.ObserveConnectionStatusUseCase
@@ -77,12 +76,11 @@ class WatchlistViewModel @Inject constructor(
                     observeQuotesUseCase(watchlistSymbols + PopularSymbols.SYMBOLS),
                     observeConnectionStatusUseCase(),
                 ) { quotes, connectionStatus ->
-                    val assetTypeBySymbol = items.associate { it.symbol to it.assetType }
                     WatchlistState(
                         items = items.map { WatchlistItemUi(it.symbol, it.displayName, it.assetType) },
-                        quotes = quotes.filterKeys { it in watchlistSymbols }.mapValues { (symbol, quote) ->
+                        quotes = quotes.filterKeys { it in watchlistSymbols }.mapValues { (_, quote) ->
                             QuoteUi(
-                                price = formatPrice(quote.price, assetTypeBySymbol.getValue(symbol)),
+                                price = formatPrice(quote.price),
                                 changePercent = formatPercent(quote.changePercent),
                                 changeDirection = changeDirectionOf(quote.changePercent),
                                 quoteSource = when (quote.source) {
@@ -97,7 +95,7 @@ class WatchlistViewModel @Inject constructor(
                                 PopularStockUi(
                                     symbol = entry.symbol,
                                     displayName = entry.displayName,
-                                    price = formatPrice(quote.price, AssetType.STOCK),
+                                    price = formatPrice(quote.price),
                                     changePercent = formatPercent(quote.changePercent),
                                     changeDirection = changeDirectionOf(quote.changePercent),
                                     changePercentValue = quote.changePercent,

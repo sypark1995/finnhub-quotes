@@ -19,6 +19,12 @@ class ConvertersTest {
     }
 
     @Test
+    fun `toAssetType falls back to STOCK for a value that is no longer a valid enum constant`() {
+        // e.g. a row persisted before FOREX support was removed.
+        assertEquals(AssetType.STOCK, converters.toAssetType("FOREX"))
+    }
+
+    @Test
     fun `AlertCondition round trips through its string representation`() {
         AlertCondition.entries.forEach { condition ->
             val stored = converters.fromAlertCondition(condition)

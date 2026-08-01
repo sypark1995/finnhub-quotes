@@ -48,7 +48,7 @@ class DetailViewModel @Inject constructor(
     private val symbol: String = savedStateHandle.get<String>("symbol").orEmpty()
     private val assetType: AssetType = savedStateHandle.get<String>("assetTypeName")
         ?.let { runCatching { AssetType.valueOf(it) }.getOrNull() }
-        ?: assetTypeFromSymbol(symbol)
+        ?: AssetType.STOCK
 
     private val _state = MutableStateFlow(DetailState(symbol = symbol))
     val state: StateFlow<DetailState> = _state.asStateFlow()
@@ -85,7 +85,7 @@ class DetailViewModel @Inject constructor(
 
             _state.value = _state.value.copy(
                 isLoading = false,
-                quote = (quoteResult as? AppResult.Success)?.data?.toQuoteUi(assetType),
+                quote = (quoteResult as? AppResult.Success)?.data?.toQuoteUi(),
                 profile = (profileDeferred.await() as? AppResult.Success)?.data?.let {
                     // Finnhub returns marketCapitalization already expressed in millions of
                     // dollars (confirmed via direct API call: AAPL's value ~4,894,708 means
@@ -99,8 +99,8 @@ class DetailViewModel @Inject constructor(
                 metrics = (metricsDeferred.await() as? AppResult.Success)?.data?.let {
                     StockMetricsUi(
                         peRatioText = it.peRatio?.toString() ?: "—",
-                        week52HighText = it.week52High?.let { h -> formatPrice(h, assetType) } ?: "—",
-                        week52LowText = it.week52Low?.let { l -> formatPrice(l, assetType) } ?: "—",
+                        week52HighText = it.week52High?.let { h -> formatPrice(h) } ?: "—",
+                        week52LowText = it.week52Low?.let { l -> formatPrice(l) } ?: "—",
                     )
                 },
                 peers = (peersDeferred.await() as? AppResult.Success)?.data ?: emptyList(),
@@ -131,7 +131,7 @@ class DetailViewModel @Inject constructor(
         viewModelScope.launch {
             observeQuotesUseCase(setOf(symbol)).collect { quotesBySymbol ->
                 val quote = quotesBySymbol[symbol] ?: return@collect
-                _state.value = _state.value.copy(quote = quote.toQuoteUi(assetType))
+                _state.value = _state.value.copy(quote = quote.toQuoteUi())
             }
         }
     }
@@ -139,14 +139,14 @@ class DetailViewModel @Inject constructor(
     private fun isoDate(epochMillis: Long): String =
         java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date(epochMillis))
 
-    private fun com.sypark.finnhub.core.domain.model.Quote.toQuoteUi(assetType: AssetType) = QuoteUi(
-        price = formatPrice(price, assetType),
-        change = formatPrice(change, assetType),
+    private fun com.sypark.finnhub.core.domain.model.Quote.toQuoteUi() = QuoteUi(
+        price = formatPrice(price),
+        change = formatPrice(change),
         changePercent = formatPercent(changePercent),
         changeDirection = changeDirectionOf(changePercent),
-        high = formatPrice(high, assetType),
-        low = formatPrice(low, assetType),
-        open = formatPrice(open, assetType),
+        high = formatPrice(high),
+        low = formatPrice(low),
+        open = formatPrice(open),
         quoteSource = when (source) {
             com.sypark.finnhub.core.domain.model.QuoteSource.WEBSOCKET -> UiQuoteSource.WEBSOCKET
             com.sypark.finnhub.core.domain.model.QuoteSource.REST -> UiQuoteSource.REST
@@ -154,10 +154,3 @@ class DetailViewModel @Inject constructor(
         },
     )
 }
-
-private fun assetTypeFromSymbol(symbol: String): AssetType =
-    if (symbol.contains(":") && symbol.contains("_")) {
-        AssetType.FOREX
-    } else {
-        AssetType.STOCK
-    }

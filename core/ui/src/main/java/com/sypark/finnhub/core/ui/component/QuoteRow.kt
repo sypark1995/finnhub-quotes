@@ -47,7 +47,6 @@ import kotlinx.coroutines.delay
 
 private fun assetBadgeLabel(assetType: AssetType): String = when (assetType) {
     AssetType.STOCK -> "ST"
-    AssetType.FOREX -> "FX"
     AssetType.CRYPTO -> "CR"
 }
 

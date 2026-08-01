@@ -73,7 +73,7 @@ fun SearchScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(Spacing.space4),
-            placeholder = { Text("종목·환율 검색") },
+            placeholder = { Text("종목 검색") },
             leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
             trailingIcon = {
                 if (state.query.isNotEmpty()) {
@@ -130,7 +130,7 @@ private fun FilterPill(
 private fun SearchResults(state: SearchState, onIntent: (SearchIntent) -> Unit) {
     when {
         state.query.isBlank() -> EmptyState(
-            title = "종목·환율을 검색해 보세요",
+            title = "종목을 검색해 보세요",
             description = "심볼이나 회사명을 입력하면 결과가 표시됩니다",
             ctaLabel = null,
             onCtaClick = null,
