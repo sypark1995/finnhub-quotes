@@ -8,13 +8,14 @@ data class RouteUiConfig(
     val topBarTitle: String,
     val showBackButton: Boolean,
     val showSearchAction: Boolean,
+    val showEarningsAction: Boolean = false,
     val bottomNavTab: BottomNavTab?,
 )
 
 fun routeUiConfig(route: Route): RouteUiConfig = when (route) {
     is Route.Watchlist -> RouteUiConfig(
         showBottomBar = true, useDefaultTopBar = true, topBarTitle = "관심종목",
-        showBackButton = false, showSearchAction = true, bottomNavTab = BottomNavTab.HOME,
+        showBackButton = false, showSearchAction = true, showEarningsAction = true, bottomNavTab = BottomNavTab.HOME,
     )
     is Route.Search -> RouteUiConfig(
         showBottomBar = true, useDefaultTopBar = true, topBarTitle = "검색",
@@ -37,5 +38,9 @@ fun routeUiConfig(route: Route): RouteUiConfig = when (route) {
     is Route.Settings -> RouteUiConfig(
         showBottomBar = true, useDefaultTopBar = true, topBarTitle = "설정",
         showBackButton = false, showSearchAction = false, bottomNavTab = BottomNavTab.SETTINGS,
+    )
+    is Route.Earnings -> RouteUiConfig(
+        showBottomBar = false, useDefaultTopBar = true, topBarTitle = "실적 캘린더",
+        showBackButton = true, showSearchAction = false, bottomNavTab = null,
     )
 }

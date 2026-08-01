@@ -67,6 +67,7 @@ dependencies {
     implementation(project(":feature:search"))
     implementation(project(":feature:detail"))
     implementation(project(":feature:alert"))
+    implementation(project(":feature:earnings"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

@@ -6,6 +6,7 @@ import com.sypark.finnhub.core.network.dto.EarningsEventDto
 fun EarningsEventDto.toDomain(): EarningsEvent = EarningsEvent(
     symbol = symbol,
     date = date,
+    hour = hour,
     epsEstimate = epsEstimate,
     epsActual = epsActual,
     revenueEstimate = revenueEstimate,

@@ -10,4 +10,5 @@ sealed interface Route {
     @Serializable data object Alerts : Route
     @Serializable data class AlertCreate(val symbol: String? = null) : Route
     @Serializable data object Settings : Route
+    @Serializable data object Earnings : Route
 }

@@ -68,5 +68,13 @@ fun AppNavHost(navController: NavHostController) {
                 com.sypark.finnhub.settings.SettingsRoute(modifier = androidx.compose.ui.Modifier.padding(padding))
             }
         }
+        composable<Route.Earnings> {
+            AppScaffold(navController = navController, currentRoute = Route.Earnings) { padding ->
+                com.sypark.finnhub.feature.earnings.EarningsRoute(
+                    onNavigateToDetail = { symbol -> navController.navigate(Route.Detail(symbol)) },
+                    modifier = androidx.compose.ui.Modifier.padding(padding),
+                )
+            }
+        }
     }
 }

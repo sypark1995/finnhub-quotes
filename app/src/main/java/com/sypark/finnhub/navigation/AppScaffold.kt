@@ -3,6 +3,7 @@ package com.sypark.finnhub.navigation
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -39,6 +40,11 @@ fun AppScaffold(
                         }
                     },
                     actions = {
+                        if (config.showEarningsAction) {
+                            IconButton(onClick = { navController.navigate(Route.Earnings) }) {
+                                Icon(Icons.Filled.Event, contentDescription = "실적 캘린더")
+                            }
+                        }
                         if (config.showSearchAction) {
                             IconButton(onClick = { navController.navigate(Route.Search) }) {
                                 Icon(Icons.Filled.Search, contentDescription = "검색")

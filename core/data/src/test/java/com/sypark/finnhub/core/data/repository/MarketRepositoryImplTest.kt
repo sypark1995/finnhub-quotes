@@ -364,7 +364,7 @@ class MarketRepositoryImplTest {
     @Test
     fun `getEarningsCalendar maps every DTO to a domain EarningsEvent`() = runTest {
         coEvery { apiService.getEarningsCalendar("2026-07-01", "2026-07-31", "AAPL") } returns com.sypark.finnhub.core.network.dto.EarningsCalendarResponseDto(
-            listOf(com.sypark.finnhub.core.network.dto.EarningsEventDto("2026-07-15", 1.5, null, null, null, "AAPL")),
+            listOf(com.sypark.finnhub.core.network.dto.EarningsEventDto(date = "2026-07-15", epsEstimate = 1.5, symbol = "AAPL")),
         )
         val result = repository.getEarningsCalendar("2026-07-01", "2026-07-31", "AAPL")
         assertTrue(result is AppResult.Success)

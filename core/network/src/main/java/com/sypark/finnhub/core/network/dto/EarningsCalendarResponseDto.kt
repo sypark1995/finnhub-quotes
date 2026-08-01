@@ -8,6 +8,7 @@ data class EarningsCalendarResponseDto(val earningsCalendar: List<EarningsEventD
 @Serializable
 data class EarningsEventDto(
     val date: String,
+    val hour: String = "",
     val epsEstimate: Double? = null,
     val epsActual: Double? = null,
     val revenueEstimate: Double? = null,
