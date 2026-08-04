@@ -115,6 +115,29 @@ class EarningsViewModelTest {
     }
 
     @Test
+    fun `Load never has more than 5 calendar requests in flight at once, even with a large watchlist`() = runTest(dispatcher) {
+        val watchlistItems = (1..12).map { WatchlistItem("SYM$it", "Company $it", AssetType.STOCK, it) }
+        every { observeWatchlistUseCase() } returns flowOf(watchlistItems)
+
+        val inFlight = java.util.concurrent.atomic.AtomicInteger(0)
+        val maxObservedConcurrency = java.util.concurrent.atomic.AtomicInteger(0)
+        coEvery { getEarningsCalendarUseCase(any(), any(), any()) } coAnswers {
+            val current = inFlight.incrementAndGet()
+            maxObservedConcurrency.updateAndGet { max -> maxOf(max, current) }
+            kotlinx.coroutines.delay(10)
+            inFlight.decrementAndGet()
+            AppResult.Success(emptyList())
+        }
+        val viewModel = buildViewModel()
+
+        viewModel.onIntent(EarningsIntent.Load)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        io.mockk.coVerify(exactly = 12) { getEarningsCalendarUseCase(any(), any(), any()) }
+        assert(maxObservedConcurrency.get() <= 5) { "expected at most 5 concurrent requests, saw ${maxObservedConcurrency.get()}" }
+    }
+
+    @Test
     fun `OpenDetail emits a NavigateToDetail effect with the given symbol`() = runTest(dispatcher) {
         val viewModel = buildViewModel()
         viewModel.effect.test {

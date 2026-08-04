@@ -18,8 +18,16 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
+
+// Caps how many calendar/earnings requests are in flight at once, independent of watchlist
+// size. Without this, a 20-symbol watchlist fires 20 simultaneous requests and Finnhub's
+// free-tier rate limit turns most of them into 429s that RateLimitInterceptor then retries
+// serially anyway -- bounding concurrency upfront avoids manufacturing that retry storm.
+private const val MAX_CONCURRENT_EARNINGS_REQUESTS = 5
 
 @HiltViewModel
 class EarningsViewModel @Inject constructor(
@@ -27,6 +35,7 @@ class EarningsViewModel @Inject constructor(
     private val getEarningsCalendarUseCase: GetEarningsCalendarUseCase,
 ) : ViewModel() {
 
+    private val requestSemaphore = Semaphore(MAX_CONCURRENT_EARNINGS_REQUESTS)
     private val _state = MutableStateFlow(EarningsState())
     val state: StateFlow<EarningsState> = _state.asStateFlow()
 
@@ -58,7 +67,11 @@ class EarningsViewModel @Inject constructor(
             // company in the date range (hundreds of rows even for a two-week window) -- fetching
             // per-symbol is the only way to keep this bounded to what the user actually watches.
             val events = watchlistItems
-                .map { item -> async { getEarningsCalendarUseCase(from, to, item.symbol).getOrNull() } }
+                .map { item ->
+                    async {
+                        requestSemaphore.withPermit { getEarningsCalendarUseCase(from, to, item.symbol).getOrNull() }
+                    }
+                }
                 .awaitAll()
                 .filterNotNull()
                 .flatten()
