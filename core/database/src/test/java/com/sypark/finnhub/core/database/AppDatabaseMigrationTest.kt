@@ -48,4 +48,31 @@ class AppDatabaseMigrationTest {
             org.junit.Assert.assertEquals("AAPL", cursor.getString(0))
         }
     }
+
+    @Test
+    fun `migrate 5 to 6 adds earnings_cache and preserves the other tables' data`() {
+        helper.createDatabase(testDbName, 5).apply {
+            execSQL(
+                "INSERT INTO watchlist (symbol, displayName, assetType, sortOrder, addedAt) VALUES ('AAPL', 'Apple Inc.', 'STOCK', 0, 1)",
+            )
+            close()
+        }
+
+        val migrated = helper.runMigrationsAndValidate(testDbName, 6, true, MIGRATION_5_6)
+
+        migrated.execSQL(
+            "INSERT INTO earnings_cache (symbol, date, hour, epsEstimate, epsActual, revenueEstimate, revenueActual, fetchedAt) " +
+                "VALUES ('AAPL', '2026-10-28', 'amc', 2.05, NULL, NULL, NULL, 1)",
+        )
+        migrated.query("SELECT symbol, date FROM earnings_cache").use { cursor ->
+            org.junit.Assert.assertTrue(cursor.moveToFirst())
+            org.junit.Assert.assertEquals("AAPL", cursor.getString(0))
+            org.junit.Assert.assertEquals("2026-10-28", cursor.getString(1))
+        }
+
+        migrated.query("SELECT symbol FROM watchlist").use { cursor ->
+            org.junit.Assert.assertTrue(cursor.moveToFirst())
+            org.junit.Assert.assertEquals("AAPL", cursor.getString(0))
+        }
+    }
 }

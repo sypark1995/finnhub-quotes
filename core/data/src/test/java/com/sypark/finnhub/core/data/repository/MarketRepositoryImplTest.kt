@@ -4,6 +4,7 @@ import app.cash.turbine.test
 import com.sypark.finnhub.core.common.AppDispatchers
 import com.sypark.finnhub.core.common.AppResult
 import com.sypark.finnhub.core.data.mapper.toDomain
+import com.sypark.finnhub.core.database.dao.EarningsCacheDao
 import com.sypark.finnhub.core.database.dao.QuoteCacheDao
 import com.sypark.finnhub.core.database.entity.QuoteCacheEntity
 import com.sypark.finnhub.core.domain.model.ConnectionStatus
@@ -41,8 +42,9 @@ class MarketRepositoryImplTest {
     private val apiService = mockk<FinnhubApiService>()
     private val webSocketManager = mockk<FinnhubWebSocketManager>(relaxUnitFun = true)
     private val quoteCacheDao = mockk<QuoteCacheDao>(relaxUnitFun = true)
+    private val earningsCacheDao = mockk<EarningsCacheDao>(relaxUnitFun = true)
     private val preferencesDataSource = mockk<com.sypark.finnhub.core.datastore.UserPreferencesDataSource>()
-    private val repository = MarketRepositoryImpl(apiService, webSocketManager, quoteCacheDao, preferencesDataSource, AppDispatchers()) { 10_000L }
+    private val repository = MarketRepositoryImpl(apiService, webSocketManager, quoteCacheDao, earningsCacheDao, preferencesDataSource, AppDispatchers()) { 10_000L }
 
     init {
         // Task 68's fallbackJob reads these on every observeQuotes call. Defaulting to
@@ -50,6 +52,9 @@ class MarketRepositoryImplTest {
         // care about it; the one test that does (below) overrides both with `every`.
         every { webSocketManager.connectionState } returns MutableStateFlow(ConnectionState.Connected)
         every { preferencesDataSource.refreshIntervalSeconds } returns flowOf(30)
+        // getEarningsCalendar's cache check defaults every test to a cache miss unless a test
+        // explicitly overrides it with a fresher timestamp.
+        coEvery { earningsCacheDao.getLatestFetchedAt(any()) } returns null
     }
 
     @Test
@@ -362,12 +367,81 @@ class MarketRepositoryImplTest {
     }
 
     @Test
-    fun `getEarningsCalendar maps every DTO to a domain EarningsEvent`() = runTest {
+    fun `getEarningsCalendar fetches from REST, maps every DTO, and caches the result when the cache is stale`() = runTest {
+        coEvery { earningsCacheDao.getLatestFetchedAt("AAPL") } returns null
         coEvery { apiService.getEarningsCalendar("2026-07-01", "2026-07-31", "AAPL") } returns com.sypark.finnhub.core.network.dto.EarningsCalendarResponseDto(
-            listOf(com.sypark.finnhub.core.network.dto.EarningsEventDto(date = "2026-07-15", epsEstimate = 1.5, symbol = "AAPL")),
+            listOf(com.sypark.finnhub.core.network.dto.EarningsEventDto(date = "2026-07-15", hour = "amc", epsEstimate = 1.5, symbol = "AAPL")),
         )
+
         val result = repository.getEarningsCalendar("2026-07-01", "2026-07-31", "AAPL")
+
         assertTrue(result is AppResult.Success)
         assertEquals("AAPL", (result as AppResult.Success).data.single().symbol)
+        coVerify {
+            earningsCacheDao.replaceForSymbol(
+                "AAPL",
+                match { it.single().date == "2026-07-15" && it.single().hour == "amc" },
+            )
+        }
+    }
+
+    @Test
+    fun `getEarningsCalendar reads from the cache without a REST call when fresh`() = runTest {
+        coEvery { earningsCacheDao.getLatestFetchedAt("AAPL") } returns 9_800L
+        coEvery { earningsCacheDao.getForSymbol("AAPL") } returns listOf(
+            com.sypark.finnhub.core.database.entity.EarningsCacheEntity(
+                symbol = "AAPL", date = "2026-07-15", hour = "amc",
+                epsEstimate = 1.5, epsActual = null, revenueEstimate = null, revenueActual = null,
+                fetchedAt = 9_800L,
+            ),
+        )
+
+        val result = repository.getEarningsCalendar("2026-07-01", "2026-07-31", "AAPL")
+
+        assertTrue(result is AppResult.Success)
+        assertEquals("AAPL", (result as AppResult.Success).data.single().symbol)
+        coVerify(exactly = 0) { apiService.getEarningsCalendar(any(), any(), any()) }
+    }
+
+    @Test
+    fun `getEarningsCalendar falls back to a stale cache when the network call fails`() = runTest {
+        coEvery { earningsCacheDao.getLatestFetchedAt("AAPL") } returns null
+        coEvery { apiService.getEarningsCalendar(any(), any(), "AAPL") } throws IOException("offline")
+        coEvery { earningsCacheDao.getForSymbol("AAPL") } returns listOf(
+            com.sypark.finnhub.core.database.entity.EarningsCacheEntity(
+                symbol = "AAPL", date = "2026-07-15", hour = "amc",
+                epsEstimate = 1.5, epsActual = null, revenueEstimate = null, revenueActual = null,
+                fetchedAt = 1L,
+            ),
+        )
+
+        val result = repository.getEarningsCalendar("2026-07-01", "2026-07-31", "AAPL")
+
+        assertTrue(result is AppResult.Success)
+        assertEquals("AAPL", (result as AppResult.Success).data.single().symbol)
+    }
+
+    @Test
+    fun `getEarningsCalendar returns an error when the network call fails and there is no cache`() = runTest {
+        coEvery { earningsCacheDao.getLatestFetchedAt("AAPL") } returns null
+        coEvery { apiService.getEarningsCalendar(any(), any(), "AAPL") } throws IOException("offline")
+        coEvery { earningsCacheDao.getForSymbol("AAPL") } returns emptyList()
+
+        val result = repository.getEarningsCalendar("2026-07-01", "2026-07-31", "AAPL")
+
+        assertTrue(result is AppResult.Error)
+    }
+
+    @Test
+    fun `getEarningsCalendar with a null symbol bypasses the cache entirely`() = runTest {
+        coEvery { apiService.getEarningsCalendar("2026-07-01", "2026-07-31", null) } returns com.sypark.finnhub.core.network.dto.EarningsCalendarResponseDto(
+            listOf(com.sypark.finnhub.core.network.dto.EarningsEventDto(date = "2026-07-15", symbol = "AAPL")),
+        )
+
+        val result = repository.getEarningsCalendar("2026-07-01", "2026-07-31", null)
+
+        assertTrue(result is AppResult.Success)
+        coVerify(exactly = 0) { earningsCacheDao.getLatestFetchedAt(any()) }
+        coVerify(exactly = 0) { earningsCacheDao.replaceForSymbol(any(), any()) }
     }
 }

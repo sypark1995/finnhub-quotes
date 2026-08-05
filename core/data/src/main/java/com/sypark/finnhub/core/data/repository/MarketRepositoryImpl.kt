@@ -6,6 +6,7 @@ import com.sypark.finnhub.core.data.mapper.mapNetworkError
 import com.sypark.finnhub.core.data.mapper.toCacheEntity
 import com.sypark.finnhub.core.data.mapper.toDomain
 import com.sypark.finnhub.core.data.util.CacheTtl
+import com.sypark.finnhub.core.database.dao.EarningsCacheDao
 import com.sypark.finnhub.core.database.dao.QuoteCacheDao
 import com.sypark.finnhub.core.datastore.UserPreferencesDataSource
 import com.sypark.finnhub.core.domain.model.ConnectionStatus
@@ -37,6 +38,7 @@ class MarketRepositoryImpl @Inject constructor(
     private val apiService: FinnhubApiService,
     private val webSocketManager: FinnhubWebSocketManager,
     private val quoteCacheDao: QuoteCacheDao,
+    private val earningsCacheDao: EarningsCacheDao,
     private val preferencesDataSource: UserPreferencesDataSource,
     private val dispatchers: AppDispatchers,
     private val nowProvider: () -> Long = { System.currentTimeMillis() },
@@ -181,10 +183,27 @@ class MarketRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getEarningsCalendar(from: String, to: String, symbol: String?): AppResult<List<EarningsEvent>> = withContext(dispatchers.io) {
+        // Only symbol-scoped queries are cached: an unfiltered query has no stable cache key
+        // (its result depends entirely on the from/to window) and the app never issues one today.
+        if (symbol == null) {
+            return@withContext try {
+                AppResult.Success(apiService.getEarningsCalendar(from, to, null).earningsCalendar.map { it.toDomain() })
+            } catch (throwable: Throwable) {
+                AppResult.Error(mapNetworkError(throwable))
+            }
+        }
+        val now = nowProvider()
+        val lastFetchedAt = earningsCacheDao.getLatestFetchedAt(symbol)
+        if (CacheTtl.isFresh(lastFetchedAt, now, CacheTtl.EARNINGS_TTL_MILLIS)) {
+            return@withContext AppResult.Success(earningsCacheDao.getForSymbol(symbol).map { it.toDomain() })
+        }
         try {
-            AppResult.Success(apiService.getEarningsCalendar(from, to, symbol).earningsCalendar.map { it.toDomain() })
+            val events = apiService.getEarningsCalendar(from, to, symbol).earningsCalendar.map { it.toDomain() }
+            earningsCacheDao.replaceForSymbol(symbol, events.map { it.toCacheEntity(now) })
+            AppResult.Success(events)
         } catch (throwable: Throwable) {
-            AppResult.Error(mapNetworkError(throwable))
+            val cached = earningsCacheDao.getForSymbol(symbol).map { it.toDomain() }
+            if (cached.isNotEmpty()) AppResult.Success(cached) else AppResult.Error(mapNetworkError(throwable))
         }
     }
 }
