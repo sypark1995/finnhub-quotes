@@ -56,4 +56,24 @@ class WatchlistDaoTest {
         dao.updateSortOrder("AAPL", sortOrder = 5)
         assertEquals(5, dao.getBySymbol("AAPL")?.sortOrder)
     }
+
+    @Test
+    fun `updateSortOrders updates every row and emits observeAll only once for the whole batch`() = runTest {
+        dao.insert(WatchlistEntity("AAPL", "Apple Inc.", AssetType.STOCK, sortOrder = 0, addedAt = 1L))
+        dao.insert(WatchlistEntity("MSFT", "Microsoft Corp.", AssetType.STOCK, sortOrder = 1, addedAt = 2L))
+        dao.insert(WatchlistEntity("GOOGL", "Alphabet Inc.", AssetType.STOCK, sortOrder = 2, addedAt = 3L))
+
+        dao.observeAll().test {
+            assertEquals(listOf("AAPL", "MSFT", "GOOGL"), awaitItem().map { it.symbol })
+
+            dao.updateSortOrders(listOf("MSFT", "AAPL", "GOOGL"), listOf(0, 1, 2))
+
+            // A single emission for the whole batch (not one per row) proves the writes are
+            // wrapped in one transaction -- callers that flatMapLatest off this flow (e.g.
+            // WatchlistViewModel) would otherwise cancel/restart their downstream subscription
+            // once per row.
+            assertEquals(listOf("MSFT", "AAPL", "GOOGL"), awaitItem().map { it.symbol })
+            expectNoEvents()
+        }
+    }
 }

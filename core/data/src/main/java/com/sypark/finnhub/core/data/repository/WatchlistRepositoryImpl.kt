@@ -33,7 +33,7 @@ class WatchlistRepositoryImpl @Inject constructor(
 
     override suspend fun reorder(items: List<WatchlistItem>): AppResult<Unit> = withContext(dispatchers.io) {
         runCatching {
-            items.forEachIndexed { index, item -> dao.updateSortOrder(item.symbol, index) }
+            dao.updateSortOrders(items.map { it.symbol }, items.indices.toList())
         }.fold({ AppResult.Success(Unit) }, { AppResult.Error(UiError.Unknown(it.message ?: "reorder failed")) })
     }
 

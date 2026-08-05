@@ -187,6 +187,8 @@ fun WatchlistScreen(
                     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
                     var draggingIndex by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<Int?>(null) }
                     var dragOffsetY by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(0f) }
+                    val density = androidx.compose.ui.platform.LocalDensity.current
+                    val rowHeightPx = with(density) { Spacing.quoteRowHeight.toPx() }
                     val pullToRefreshState = rememberPullToRefreshState()
                     androidx.compose.material3.pulltorefresh.PullToRefreshBox(
                         isRefreshing = state.isRefreshing,
@@ -206,7 +208,7 @@ fun WatchlistScreen(
                             verticalArrangement = Arrangement.spacedBy(Spacing.space2),
                         ) {
                             itemsIndexed(items = state.items, key = { _, item -> item.symbol }) { index, item ->
-                                StaggeredListItem(index = index) {
+                                StaggeredListItem(index = index, key = item.symbol) {
                                     val dismissState = androidx.compose.material3.rememberSwipeToDismissBoxState(
                                         confirmValueChange = { value ->
                                             if (value == androidx.compose.material3.SwipeToDismissBoxValue.EndToStart) {
@@ -264,10 +266,11 @@ fun WatchlistScreen(
                                                             onDragStart = { draggingIndex = state.items.indexOf(item) },
                                                             onDragEnd = {
                                                                 val from = draggingIndex
+                                                                val offset = dragOffsetY
                                                                 draggingIndex = null
                                                                 dragOffsetY = 0f
                                                                 if (from != null) {
-                                                                    val to = (from + (dragOffsetY / com.sypark.finnhub.core.ui.theme.Spacing.quoteRowHeight.value).toInt())
+                                                                    val to = (from + (offset / rowHeightPx).toInt())
                                                                         .coerceIn(0, state.items.lastIndex)
                                                                     if (to != from) onIntent(WatchlistIntent.Reorder(from, to))
                                                                 }

@@ -27,8 +27,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -65,40 +67,46 @@ class WatchlistViewModel @Inject constructor(
     }
 
     private fun load() {
-        observeWatchlistUseCase()
-            .flatMapLatest { items ->
-                latestDomainItems = items
-                val watchlistSymbols = items.map { it.symbol }.toSet()
+        val watchlistItemsFlow = observeWatchlistUseCase().onEach { latestDomainItems = it }
+        // Only restart the (expensive: WebSocket connect/subscribe, Room cache observation,
+        // REST seed/fallback jobs) quote subscription when the *set* of symbols actually
+        // changes -- not on every watchlist emission. A pure reorder emits a new items list
+        // with the same derived symbol set, and flatMapLatest keying off the raw list would
+        // tear down and rebuild that whole pipeline for no reason on every reorder.
+        val quotesFlow = watchlistItemsFlow
+            .map { items -> items.map { it.symbol }.toSet() }
+            .distinctUntilChanged()
+            .flatMapLatest { watchlistSymbols ->
                 // Union into a single observeQuotesUseCase subscription: the WebSocket
                 // manager's syncSubscriptions() replaces the *entire* active symbol set on
                 // every call, so independent subscriptions (watchlist + popular stocks +
                 // popular crypto) would keep stomping on each other's symbols.
-                combine(
-                    observeQuotesUseCase(watchlistSymbols + PopularSymbols.SYMBOLS + PopularCryptoSymbols.SYMBOLS),
-                    observeConnectionStatusUseCase(),
-                ) { quotes, connectionStatus ->
-                    WatchlistState(
-                        items = items.map { WatchlistItemUi(it.symbol, it.displayName, it.assetType) },
-                        quotes = quotes.filterKeys { it in watchlistSymbols }.mapValues { (_, quote) ->
-                            QuoteUi(
-                                price = formatPrice(quote.price),
-                                changePercent = formatPercent(quote.changePercent),
-                                changeDirection = changeDirectionOf(quote.changePercent),
-                                quoteSource = when (quote.source) {
-                                    com.sypark.finnhub.core.domain.model.QuoteSource.WEBSOCKET -> UiQuoteSource.WEBSOCKET
-                                    com.sypark.finnhub.core.domain.model.QuoteSource.REST -> UiQuoteSource.REST
-                                    com.sypark.finnhub.core.domain.model.QuoteSource.CACHE -> UiQuoteSource.CACHE
-                                },
-                            )
-                        },
-                        popularStocks = popularUi(PopularSymbols.ENTRIES.map { it.symbol to it.displayName }, quotes),
-                        popularCrypto = popularUi(PopularCryptoSymbols.ENTRIES.map { it.symbol to it.displayName }, quotes),
-                        connectionStatus = connectionStatus,
-                        isLoading = false,
-                        isRefreshing = _state.value.isRefreshing,
-                    )
-                }
+                observeQuotesUseCase(watchlistSymbols + PopularSymbols.SYMBOLS + PopularCryptoSymbols.SYMBOLS)
             }
+
+        combine(watchlistItemsFlow, quotesFlow, observeConnectionStatusUseCase()) { items, quotes, connectionStatus ->
+            val watchlistSymbols = items.map { it.symbol }.toSet()
+            WatchlistState(
+                items = items.map { WatchlistItemUi(it.symbol, it.displayName, it.assetType) },
+                quotes = quotes.filterKeys { it in watchlistSymbols }.mapValues { (_, quote) ->
+                    QuoteUi(
+                        price = formatPrice(quote.price),
+                        changePercent = formatPercent(quote.changePercent),
+                        changeDirection = changeDirectionOf(quote.changePercent),
+                        quoteSource = when (quote.source) {
+                            com.sypark.finnhub.core.domain.model.QuoteSource.WEBSOCKET -> UiQuoteSource.WEBSOCKET
+                            com.sypark.finnhub.core.domain.model.QuoteSource.REST -> UiQuoteSource.REST
+                            com.sypark.finnhub.core.domain.model.QuoteSource.CACHE -> UiQuoteSource.CACHE
+                        },
+                    )
+                },
+                popularStocks = popularUi(PopularSymbols.ENTRIES.map { it.symbol to it.displayName }, quotes),
+                popularCrypto = popularUi(PopularCryptoSymbols.ENTRIES.map { it.symbol to it.displayName }, quotes),
+                connectionStatus = connectionStatus,
+                isLoading = false,
+                isRefreshing = _state.value.isRefreshing,
+            )
+        }
             .onEach { newState -> _state.value = newState }
             .launchIn(viewModelScope)
     }

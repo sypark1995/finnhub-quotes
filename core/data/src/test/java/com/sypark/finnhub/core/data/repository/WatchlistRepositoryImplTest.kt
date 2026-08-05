@@ -53,4 +53,18 @@ class WatchlistRepositoryImplTest {
         assertTrue(repository.isInWatchlist("AAPL"))
         assertTrue(!repository.isInWatchlist("MSFT"))
     }
+
+    @Test
+    fun `reorder writes every item's new sortOrder in a single batch call and returns Success`() = runTest {
+        val items = listOf(
+            WatchlistItem("MSFT", "Microsoft Corp.", AssetType.STOCK, 0),
+            WatchlistItem("AAPL", "Apple Inc.", AssetType.STOCK, 1),
+            WatchlistItem("GOOGL", "Alphabet Inc.", AssetType.STOCK, 2),
+        )
+
+        val result = repository.reorder(items)
+
+        assertTrue(result is AppResult.Success)
+        coVerify { dao.updateSortOrders(listOf("MSFT", "AAPL", "GOOGL"), listOf(0, 1, 2)) }
+    }
 }

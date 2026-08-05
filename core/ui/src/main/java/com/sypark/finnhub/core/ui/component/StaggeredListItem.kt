@@ -18,11 +18,18 @@ import kotlin.math.min
 @Composable
 fun StaggeredListItem(
     index: Int,
+    key: Any = index,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    var visible by remember(index) { mutableStateOf(false) }
-    LaunchedEffect(index) {
+    // Keyed on `key` (an item's stable identity), not `index`: if callers pass a
+    // reorderable list, keying on `index` alone would restart this entrance
+    // animation for every slot on every reorder, and rapid successive reorders
+    // (e.g. many DB writes emitting in quick succession) can repeatedly cancel
+    // and relaunch the delay before it ever completes, leaving `visible` stuck
+    // false and the item invisible until an unrelated full recomposition.
+    var visible by remember(key) { mutableStateOf(false) }
+    LaunchedEffect(key) {
         delay(min(index, 10) * 30L)
         visible = true
     }
