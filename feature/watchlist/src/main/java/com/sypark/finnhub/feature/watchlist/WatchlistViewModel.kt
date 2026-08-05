@@ -9,6 +9,7 @@ import com.sypark.finnhub.core.domain.usecase.watchlist.DisconnectMarketUseCase
 import com.sypark.finnhub.core.domain.usecase.watchlist.ObserveConnectionStatusUseCase
 import com.sypark.finnhub.core.domain.usecase.watchlist.ObserveQuotesUseCase
 import com.sypark.finnhub.core.domain.usecase.watchlist.ObserveWatchlistUseCase
+import com.sypark.finnhub.core.domain.usecase.watchlist.PopularCryptoSymbols
 import com.sypark.finnhub.core.domain.usecase.watchlist.PopularSymbols
 import com.sypark.finnhub.core.domain.usecase.watchlist.RefreshQuotesUseCase
 import com.sypark.finnhub.core.domain.usecase.watchlist.RemoveFromWatchlistUseCase
@@ -70,10 +71,10 @@ class WatchlistViewModel @Inject constructor(
                 val watchlistSymbols = items.map { it.symbol }.toSet()
                 // Union into a single observeQuotesUseCase subscription: the WebSocket
                 // manager's syncSubscriptions() replaces the *entire* active symbol set on
-                // every call, so two independent subscriptions (watchlist + popular) would
-                // keep stomping on each other's symbols.
+                // every call, so independent subscriptions (watchlist + popular stocks +
+                // popular crypto) would keep stomping on each other's symbols.
                 combine(
-                    observeQuotesUseCase(watchlistSymbols + PopularSymbols.SYMBOLS),
+                    observeQuotesUseCase(watchlistSymbols + PopularSymbols.SYMBOLS + PopularCryptoSymbols.SYMBOLS),
                     observeConnectionStatusUseCase(),
                 ) { quotes, connectionStatus ->
                     WatchlistState(
@@ -90,18 +91,8 @@ class WatchlistViewModel @Inject constructor(
                                 },
                             )
                         },
-                        popularStocks = PopularSymbols.ENTRIES.mapNotNull { entry ->
-                            quotes[entry.symbol]?.let { quote ->
-                                PopularStockUi(
-                                    symbol = entry.symbol,
-                                    displayName = entry.displayName,
-                                    price = formatPrice(quote.price),
-                                    changePercent = formatPercent(quote.changePercent),
-                                    changeDirection = changeDirectionOf(quote.changePercent),
-                                    changePercentValue = quote.changePercent,
-                                )
-                            }
-                        }.sortedByDescending { kotlin.math.abs(it.changePercentValue) },
+                        popularStocks = popularUi(PopularSymbols.ENTRIES.map { it.symbol to it.displayName }, quotes),
+                        popularCrypto = popularUi(PopularCryptoSymbols.ENTRIES.map { it.symbol to it.displayName }, quotes),
                         connectionStatus = connectionStatus,
                         isLoading = false,
                         isRefreshing = _state.value.isRefreshing,
@@ -119,6 +110,22 @@ class WatchlistViewModel @Inject constructor(
             _state.value = _state.value.copy(isRefreshing = false)
         }
     }
+
+    private fun popularUi(
+        entries: List<Pair<String, String>>,
+        quotes: Map<String, com.sypark.finnhub.core.domain.model.Quote>,
+    ): List<PopularStockUi> = entries.mapNotNull { (symbol, displayName) ->
+        quotes[symbol]?.let { quote ->
+            PopularStockUi(
+                symbol = symbol,
+                displayName = displayName,
+                price = formatPrice(quote.price),
+                changePercent = formatPercent(quote.changePercent),
+                changeDirection = changeDirectionOf(quote.changePercent),
+                changePercentValue = quote.changePercent,
+            )
+        }
+    }.sortedByDescending { kotlin.math.abs(it.changePercentValue) }
 
     private fun remove(symbol: String) {
         viewModelScope.launch {

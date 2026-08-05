@@ -149,7 +149,20 @@ fun WatchlistScreen(
             ConnectionBanner(state = state.connectionStatus.toBannerState())
 
             if (state.popularStocks.isNotEmpty()) {
-                PopularStocksSection(stocks = state.popularStocks, onIntent = onIntent)
+                PopularStocksSection(
+                    title = "인기 종목",
+                    stocks = state.popularStocks,
+                    assetType = AssetType.STOCK,
+                    onIntent = onIntent,
+                )
+            }
+            if (state.popularCrypto.isNotEmpty()) {
+                PopularStocksSection(
+                    title = "인기 코인",
+                    stocks = state.popularCrypto,
+                    assetType = AssetType.CRYPTO,
+                    onIntent = onIntent,
+                )
             }
 
             when {
@@ -303,13 +316,15 @@ fun WatchlistScreen(
 
 @Composable
 private fun PopularStocksSection(
+    title: String,
     stocks: List<PopularStockUi>,
+    assetType: AssetType,
     onIntent: (WatchlistIntent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.padding(top = Spacing.space2)) {
         Text(
-            text = "인기 종목",
+            text = title,
             style = MaterialTheme.typography.titleMedium,
             modifier = Modifier.padding(horizontal = Spacing.space4, vertical = Spacing.space2),
         )
@@ -320,7 +335,7 @@ private fun PopularStocksSection(
             items(items = stocks, key = { it.symbol }) { stock ->
                 PopularStockCard(
                     stock = stock,
-                    onClick = { onIntent(WatchlistIntent.OpenDetail(stock.symbol, AssetType.STOCK)) },
+                    onClick = { onIntent(WatchlistIntent.OpenDetail(stock.symbol, assetType)) },
                 )
             }
         }

@@ -12,6 +12,7 @@ import com.sypark.finnhub.core.domain.usecase.watchlist.DisconnectMarketUseCase
 import com.sypark.finnhub.core.domain.usecase.watchlist.ObserveConnectionStatusUseCase
 import com.sypark.finnhub.core.domain.usecase.watchlist.ObserveQuotesUseCase
 import com.sypark.finnhub.core.domain.usecase.watchlist.ObserveWatchlistUseCase
+import com.sypark.finnhub.core.domain.usecase.watchlist.PopularCryptoSymbols
 import com.sypark.finnhub.core.domain.usecase.watchlist.PopularSymbols
 import com.sypark.finnhub.core.domain.usecase.watchlist.RefreshQuotesUseCase
 import com.sypark.finnhub.core.domain.usecase.watchlist.RemoveFromWatchlistUseCase
@@ -51,7 +52,7 @@ class WatchlistViewModelTest {
         every { observeWatchlistUseCase() } returns flowOf(
             listOf(WatchlistItem("AAPL", "Apple Inc.", AssetType.STOCK, 0)),
         )
-        every { observeQuotesUseCase(setOf("AAPL") + PopularSymbols.SYMBOLS) } returns flowOf(
+        every { observeQuotesUseCase(setOf("AAPL") + PopularSymbols.SYMBOLS + PopularCryptoSymbols.SYMBOLS) } returns flowOf(
             mapOf("AAPL" to Quote("AAPL", 198.5, 2.3, 1.17, 199.1, 196.8, 197.2, 196.2, 1L, QuoteSource.WEBSOCKET)),
         )
         every { observeConnectionStatusUseCase() } returns flowOf(ConnectionStatus.Connected)
@@ -81,7 +82,7 @@ class WatchlistViewModelTest {
 
     @Test
     fun `Load derives popularStocks from the curated symbols, sorted by absolute change desc`() = runTest(dispatcher) {
-        every { observeQuotesUseCase(setOf("AAPL") + PopularSymbols.SYMBOLS) } returns flowOf(
+        every { observeQuotesUseCase(setOf("AAPL") + PopularSymbols.SYMBOLS + PopularCryptoSymbols.SYMBOLS) } returns flowOf(
             mapOf(
                 "AAPL" to Quote("AAPL", 198.5, 2.3, 1.17, 199.1, 196.8, 197.2, 196.2, 1L, QuoteSource.WEBSOCKET),
                 "NVDA" to Quote("NVDA", 900.0, 45.0, 5.26, 905.0, 850.0, 855.0, 855.0, 1L, QuoteSource.WEBSOCKET),
@@ -96,6 +97,23 @@ class WatchlistViewModelTest {
         // appears in popularStocks too (abs 1.17%), ranked behind NVDA (5.26%) and MSFT (1.96%).
         val popular = viewModel.state.value.popularStocks
         assertEquals(listOf("NVDA", "MSFT", "AAPL"), popular.map { it.symbol })
+    }
+
+    @Test
+    fun `Load derives popularCrypto from the curated crypto symbols, sorted by absolute change desc`() = runTest(dispatcher) {
+        every { observeQuotesUseCase(setOf("AAPL") + PopularSymbols.SYMBOLS + PopularCryptoSymbols.SYMBOLS) } returns flowOf(
+            mapOf(
+                "AAPL" to Quote("AAPL", 198.5, 2.3, 1.17, 199.1, 196.8, 197.2, 196.2, 1L, QuoteSource.WEBSOCKET),
+                "BINANCE:BTCUSDT" to Quote("BINANCE:BTCUSDT", 65000.0, 800.0, 1.25, 65500.0, 64000.0, 64200.0, 64200.0, 1L, QuoteSource.WEBSOCKET),
+                "BINANCE:DOGEUSDT" to Quote("BINANCE:DOGEUSDT", 0.15, -0.02, -11.76, 0.17, 0.14, 0.17, 0.17, 1L, QuoteSource.WEBSOCKET),
+            ),
+        )
+        val viewModel = buildViewModel()
+        viewModel.onIntent(WatchlistIntent.Load)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val popularCrypto = viewModel.state.value.popularCrypto
+        assertEquals(listOf("BINANCE:DOGEUSDT", "BINANCE:BTCUSDT"), popularCrypto.map { it.symbol })
     }
 
     @Test
