@@ -1,6 +1,11 @@
 // feature/alert/src/main/java/com/sypark/finnhub/feature/alert/AlertCreateScreen.kt
 package com.sypark.finnhub.feature.alert
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -18,7 +23,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sypark.finnhub.core.common.AlertCondition
@@ -33,6 +40,25 @@ fun AlertCreateRoute(
     viewModel: AlertCreateViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+
+    // POST_NOTIFICATIONS is declared in the manifest but that alone never grants it on API 33+ --
+    // without an explicit runtime request, PriceAlertCheckWorker's notify() call is silently
+    // skipped by NotificationHelper's own permission check forever, while the alert still gets
+    // marked triggered (confirmed on a real device: permission was "granted=false" despite an
+    // alert already showing "알림 발송됨"). Ask right here, since creating an alert is the one
+    // action that makes the permission's purpose obvious to the user.
+    val context = LocalContext.current
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = {},
+    )
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
 
     LaunchedEffect(viewModel) {
         viewModel.effect.collectLatest { effect ->
